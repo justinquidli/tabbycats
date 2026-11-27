@@ -10,7 +10,7 @@ import { hexToBytes } from 'viem';
 import * as fc from '@farcaster/core';
 
 const FID = 3359500;
-const NODES = ['https://snap.farcaster.xyz:3381', 'https://haatz.quilibrium.com'];
+const NODES = ['https://snap.farcaster.xyz:3381', process.env.HYPERSNAP_NODE ?? 'https://haatz.quilibrium.com'];
 const FIELDS = {
   display: fc.UserDataType.DISPLAY,
   bio: fc.UserDataType.BIO,

@@ -10,12 +10,12 @@ import { ed25519 } from '@noble/curves/ed25519';
 import { blake3 } from '@noble/hashes/blake3';
 
 const DIR = `${process.env.HOME}/.tabbycats`;
-const NODE = 'https://haatz.quilibrium.com';
+const NODE = process.env.HYPERSNAP_NODE ?? 'https://haatz.quilibrium.com'; // or https://hypersnap.rainonmeproductions.com
 const FARCASTER_EPOCH = 1609459200;
 const PROFILE = {
   2: 'TabbyCats', // DISPLAY
   1: 'https://tabbycats.party/pfp-2.png', // PFP
-  3: 'Curate multiple feeds on Farcaster & Hypersnap in a single client, meow! 😺', // BIO
+  3: 'Curate multiple feeds on Farcaster & Hypersnap in a single client, meow! 😺 By @ahn.eth', // BIO
   5: 'https://tabbycats.party', // URL
 };
 
