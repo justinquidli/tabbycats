@@ -43,8 +43,8 @@ export const newId = () =>
 
 export function presetColumn(source: Source, kind: ColumnKind): Column {
   if (kind === 'all') {
-    if (source === 'farcaster') return { id: newId(), source, kind, name: 'Farcaster only', emoji: '⛩️' };
-    if (source === 'hypersnap') return { id: newId(), source, kind, name: 'Hypersnap only', emoji: '🫰' };
+    if (source === 'farcaster') return { id: newId(), source, kind, name: 'Farcaster', emoji: '⛩️' };
+    if (source === 'hypersnap') return { id: newId(), source, kind, name: 'Hypersnap', emoji: '🫰' };
     return { id: newId(), source, kind, name: 'All', emoji: '🌊' };
   }
   if (kind === 'following') return { id: newId(), source, kind, name: 'Following', emoji: '👥' };
@@ -64,9 +64,13 @@ function initial(): AppState {
     if (Array.isArray(saved?.columns)) {
       // Swap the first default icons for the network ones, unless someone picked their own
       const icons: Record<string, [string, string]> = { farcaster: ['🟣', '⛩️'], hypersnap: ['🟠', '🫰'] };
-      const columns = (saved.columns as Column[]).map((c) =>
-        c.kind === 'all' && icons[c.source] && c.emoji === icons[c.source][0] ? { ...c, emoji: icons[c.source][1] } : c,
-      );
+      const renamed: Record<string, [string, string]> = { farcaster: ['Farcaster only', 'Farcaster'], hypersnap: ['Hypersnap only', 'Hypersnap'] };
+      const columns = (saved.columns as Column[]).map((c) => {
+        if (c.kind !== 'all' || !icons[c.source]) return c;
+        const emoji = c.emoji === icons[c.source][0] ? icons[c.source][1] : c.emoji;
+        const name = c.name === renamed[c.source][0] ? renamed[c.source][1] : c.name; // feeds now show where posts were written
+        return { ...c, emoji, name };
+      });
       return { ...fallback, ...saved, columns };
     }
 

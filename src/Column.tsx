@@ -3,7 +3,7 @@ import { type Cast, type Network, getCastsByFid, getFollowing, getProfile, resol
 import { CastCard } from './CastCard';
 import type { Column } from './store';
 import { useWrite } from './account';
-import { FIRST_NATIVE_FID, SOURCES, type Source, mergeByHash, pickSource, useCombinedFirehose } from './sources';
+import { FIRST_NATIVE_FID, SOURCES, type Source, mergeByHash, useCombinedFirehose, useSourceFilter } from './sources';
 import { shareLink } from './share';
 
 const MAX_HISTORY_FIDS = 300;
@@ -61,8 +61,8 @@ function useColumnFids(source: Source, col: Column): FidState {
   return state;
 }
 
-// Recent casts for a set of accounts. Combined feeds read each account from one node; feeds
-// that show one network's exclusives read both so every cast can be compared.
+// Recent casts for a set of accounts: native Hypersnap accounts from Hypersnap's node,
+// everyone else from Farcaster's (which has nearly every cast).
 function useHistory(source: Source, fids?: number[]) {
   const key = fids?.join(',') ?? '';
   const [casts, setCasts] = useState<Cast[]>([]);
@@ -73,16 +73,7 @@ function useHistory(source: Source, fids?: number[]) {
     let live = true;
     const target = fids.slice(0, MAX_HISTORY_FIDS);
     const pageSize = target.length <= 20 ? 25 : target.length <= 100 ? 10 : 5;
-    const jobs: { network: Network; fid: number }[] = target.flatMap((fid) =>
-      fid >= FIRST_NATIVE_FID
-        ? [{ network: 'hypersnap' as Network, fid }]
-        : source === 'combined'
-          ? [{ network: 'farcaster' as Network, fid }]
-          : [
-              { network: 'farcaster' as Network, fid },
-              { network: 'hypersnap' as Network, fid },
-            ],
-    );
+    const jobs = target.map((fid) => ({ network: (fid >= FIRST_NATIVE_FID ? 'hypersnap' : 'farcaster') as Network, fid }));
     const found: Record<Network, Cast[]> = { farcaster: [], hypersnap: [] };
     const publish = () =>
       setCasts(mergeByHash([
@@ -222,7 +213,6 @@ export function ColumnView({ col, index, count, startEditing, onChange, onRemove
 
   const merged = useMemo(() => {
     let list: Cast[];
-    let judged: Set<string> | undefined;
     if (col.kind === 'all') list = fh.casts;
     else if (!fids.fids) list = [];
     else {
@@ -231,18 +221,16 @@ export function ColumnView({ col, index, count, startEditing, onChange, onRemove
         { network: 'farcaster', casts: history.casts },
         { network: 'farcaster', casts: fh.casts.filter((c) => set.has(c.fid)) },
       ]);
-      // history for exclusive feeds was read from both networks, so it can be judged right away
-      if (source !== 'combined') judged = new Set(history.casts.map((c) => c.hash));
     }
-    return pickSource(list, source, fh.knownSince, judged).filter(
+    return list.filter(
       (c) =>
         !fh.removed.has(c.hash) &&
         !muted.has(`farcaster:${c.fid}`) &&
         !muted.has(`hypersnap:${c.fid}`) &&
         !(col.hideReplies && c.parent),
     );
-  }, [source, col.kind, col.hideReplies, fh.casts, fh.removed, fh.knownSince, fids.fids, history.casts, muted]);
-  const live = merged;
+  }, [col.kind, col.hideReplies, fh.casts, fh.removed, fids.fids, history.casts, muted]);
+  const { shown: live, checking } = useSourceFilter(merged, source);
 
   const settled = live.filter((c) => c.ts <= cutoff);
   const shown = settled.length ? settled : live; // nothing to hold back yet: just show what's there
@@ -385,7 +373,7 @@ export function ColumnView({ col, index, count, startEditing, onChange, onRemove
       <div className="col-body" ref={body}>
         {notice}
         {!notice && shown.length === 0 && (
-          <div className="empty">{loading ? 'Pouncing on the latest casts…' : source !== 'combined' ? `Quiet as a cat nap. Only what's exclusive to ${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'} lands here, and nearly everything shows up on both networks.` : 'Quiet as a cat nap. No casts yet.'}</div>
+          <div className="empty">{loading || checking ? 'Pouncing on the latest casts…' : source === 'hypersnap' ? 'Quiet as a cat nap. Nobody has posted from a Hypersnap app in this window yet.' : 'Quiet as a cat nap. No casts yet.'}</div>
         )}
         {shown.slice(0, limit).map((c) => (
           <CastCard key={c.hash} cast={c} onMute={onMute} />

@@ -24,6 +24,7 @@ export interface Cast {
   parent?: CastId;
   parentUrl?: string;
   on?: Network[]; // networks this cast was seen on (set when feeds merge both networks)
+  signer?: string; // the posting key that signed it (tells which kind of app wrote it)
 }
 
 export interface Profile {
@@ -73,6 +74,7 @@ export function toCast(network: Network, msg: any): Cast | null {
   return {
     network,
     hash: msg.hash,
+    signer: msg.signer,
     fid: data.fid,
     ts: (FC_EPOCH + data.timestamp) * 1000,
     text: body.text ?? '',

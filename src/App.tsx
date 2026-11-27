@@ -24,7 +24,7 @@ function SourcePicker({ value, onChange }: { value: Source; onChange: (s: Source
 }
 
 function AddColumn({ source, onSource, onAdd }: { source: Source; onSource: (s: Source) => void; onAdd: (kind: ColumnKind) => void }) {
-  const what = source === 'combined' ? 'from both networks' : `that only exists on ${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'}`;
+  const what = source === 'combined' ? 'from both networks' : `written in ${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'} apps`;
   return (
     <section className="column add-column">
       <h2>Create a new feed</h2>
@@ -54,7 +54,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
       <div className="welcome-card">
         <img className="welcome-logo" src="/pfp-2.png" alt="TabbyCats" />
         <h1>Welcome to TabbyCats</h1>
-        <p>Farcaster and Hypersnap, side by side. Start with everything, plus what's only on each network.</p>
+        <p>Farcaster and Hypersnap, side by side. Start with everything, plus what's posted from each side.</p>
         <div className="welcome-actions">
           <button className="btn" onClick={onStart}>
             Start prowling
