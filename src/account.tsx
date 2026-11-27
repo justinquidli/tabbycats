@@ -195,13 +195,17 @@ export function Composer({
           rows={5}
         />
         <div className="composer-foot">
-          <span className={bytes > limit ? 'error' : 'hint'}>{limit - bytes}</span>
+          {limit - bytes <= 60 && (
+            <span className={bytes > limit ? 'error' : 'hint'}>
+              {bytes > limit ? `${bytes - limit} over the limit` : `${limit - bytes} characters left`}
+            </span>
+          )}
           {error && <span className="error">{error}</span>}
           <button className="btn" disabled={busy || !text.trim() || bytes > limit} onClick={send}>
             {busy ? 'Sending…' : parent ? 'Reply' : 'Cast'}
           </button>
         </div>
-        <p className="hint">Posting as @{account.username ?? account.fid} on Farcaster · ⌘↵ to send</p>
+        <p className="hint">Posting to Farcaster as @{account.username ?? account.fid}</p>
       </div>
     </div>
   );
