@@ -69,7 +69,7 @@ function AddColumn({
   onAdd: (kind: ColumnKind, channel?: Channel) => void;
 }) {
   const [pickingChannel, setPickingChannel] = useState(false);
-  const what = source === 'combined' ? 'from both networks' : `written in ${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'} apps`;
+  const what = source === 'combined' ? 'both networks' : `${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'} apps`;
   return (
     <section className="column add-column">
       <h2>Create a new feed</h2>
@@ -77,7 +77,7 @@ function AddColumn({
       <button onClick={() => onAdd('all')}>
         <span>🌊</span>
         <b>Straight from Tap</b>
-        <small>Every new cast {what}, the moment it lands</small>
+        <small>Every new cast from {what}, as it lands</small>
       </button>
       <button onClick={() => onAdd('following')}>
         <span>👥</span>
