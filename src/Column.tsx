@@ -4,7 +4,7 @@ import { CastCard } from './CastCard';
 import { useFirehose } from './firehose';
 import type { Column } from './store';
 import { useWrite } from './account';
-import { useHypersnapOnly } from './hsonly';
+import { isHypersnapNative } from './hsonly';
 
 const MAX_HISTORY_FIDS = 300;
 const PAGE = 50;
@@ -214,12 +214,9 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
     );
   }, [network, col.kind, col.hideReplies, fh.casts, fh.removed, fids.fids, history.casts, muted]);
 
-  // Optional: only Hypersnap-native accounts and ones that stopped posting on Farcaster at the split
+  // Optional: only native Hypersnap accounts
   const hsOnly = network === 'hypersnap' && !!col.hsOnly;
-  const authors = useMemo(() => (hsOnly ? [...new Set(baseLive.slice(0, 400).map((c) => c.fid))] : []), [hsOnly, baseLive]);
-  const isHsOnly = useHypersnapOnly(authors, hsOnly);
-  const live = hsOnly ? baseLive.filter((c) => isHsOnly(c.fid) === true) : baseLive;
-  const checking = hsOnly ? authors.filter((f) => isHsOnly(f) === undefined).length : 0;
+  const live = hsOnly ? baseLive.filter((c) => isHypersnapNative(c.fid)) : baseLive;
 
   const settled = live.filter((c) => c.ts <= cutoff);
   const shown = settled.length ? settled : live; // nothing to hold back yet: just show what's there
@@ -288,9 +285,9 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
             Hide replies
           </label>
           {network === 'hypersnap' && (
-            <label className="check" title="Native Hypersnap accounts, plus older accounts that haven't posted on Farcaster since the Nov 12, 2026 split">
+            <label className="check" title="Only accounts created on Hypersnap. People who moved over from Farcaster can't be told apart automatically; add them to a custom feed.">
               <input type="checkbox" checked={!!col.hsOnly} onChange={(e) => onChange({ hsOnly: e.target.checked })} />
-              Hypersnap-only accounts
+              Native Hypersnap accounts only
             </label>
           )}
           <div className="settings-actions">
@@ -321,8 +318,6 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
         </div>
       )}
 
-      {checking > 0 && <div className="note">Checking {checking} {checking === 1 ? 'account' : 'accounts'} for Hypersnap-only…</div>}
-
       {waiting > 0 && (
         <button className="new-pill" onClick={catchUp}>
           ↑ {waiting} new {waiting === 1 ? 'cast' : 'casts'}
@@ -332,7 +327,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
       <div className="col-body" ref={body}>
         {notice}
         {!notice && shown.length === 0 && (
-          <div className="empty">{loading ? 'Pouncing on the latest casts…' : hsOnly ? 'Quiet as a cat nap. Hypersnap-only accounts are still few, and most Hypersnap activity also comes from people posting on Farcaster.' : 'Quiet as a cat nap. No casts yet.'}</div>
+          <div className="empty">{loading ? 'Pouncing on the latest casts…' : hsOnly ? 'Quiet as a cat nap. Native Hypersnap accounts are still few. To follow people who moved over from Farcaster, add them to a custom feed.' : 'Quiet as a cat nap. No casts yet.'}</div>
         )}
         {shown.slice(0, limit).map((c) => (
           <CastCard key={c.hash} cast={c} onMute={onMute} />
