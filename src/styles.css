@@ -661,7 +661,7 @@ time {
   background: var(--peach);
   border-radius: 20px;
   padding: 32px 28px;
-  max-width: 440px;
+  max-width: 500px;
   width: 100%;
   text-align: center;
 }
@@ -1268,4 +1268,11 @@ button.brand {
 
 .welcome-notes .hint + .hint {
   margin-top: 12px;
+}
+
+/* Keep the first note on one line where there's room; phones still wrap */
+@media (min-width: 560px) {
+  .welcome-notes .hint:first-child {
+    white-space: nowrap;
+  }
 }
