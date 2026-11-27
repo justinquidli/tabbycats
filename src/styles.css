@@ -10,7 +10,9 @@
   --ink: #2b1700;
   --line: rgba(139, 64, 0, 0.18);
   --radius: 14px;
-  --col-w: 360px;
+  --col-min: 380px;
+  --col-max: 620px;
+  --add-w: 280px;
   color-scheme: light;
 }
 
@@ -160,11 +162,11 @@ a:focus-visible {
 }
 
 .column {
-  /* fixed width: wide images or links must never stretch a feed */
-  flex: 0 0 var(--col-w);
-  width: var(--col-w);
-  min-width: 0;
-  max-width: var(--col-w);
+  /* Feeds share the screen equally (comfortable reading width), and scroll sideways
+     once there are too many to fit. Content like wide images never changes the width. */
+  flex: 1 1 0;
+  min-width: var(--col-min);
+  max-width: var(--col-max);
   display: flex;
   flex-direction: column;
   background: var(--peach);
@@ -559,6 +561,8 @@ time {
 
 /* Add column */
 .add-column {
+  flex: 0 0 var(--add-w);
+  min-width: var(--add-w);
   background: transparent;
   border: 2px dashed rgba(139, 64, 0, 0.35);
   box-shadow: none;
@@ -600,7 +604,9 @@ time {
 /* Phones: one column per screen, swipe between them */
 @media (max-width: 640px) {
   :root {
-    --col-w: calc(100vw - 32px);
+    --col-min: calc(100vw - 32px);
+    --col-max: calc(100vw - 32px);
+    --add-w: calc(100vw - 32px);
   }
   .topbar {
     padding: 10px 16px;
