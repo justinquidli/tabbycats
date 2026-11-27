@@ -271,6 +271,16 @@ const COMPOSER_EMOJI = [
   '🚀', '🌊', '⛩️', '🎩', '🪙', '💸', '📈', '📉', '🧠', '🛠️', '☕', '🍿',
 ];
 
+// Phones already have an emoji key on the keyboard; desktops get the quick grid plus the
+// shortcut for the system picker (pages can't open it themselves).
+const isTouch = () => typeof matchMedia !== 'undefined' && matchMedia('(pointer: coarse)').matches;
+function systemEmojiShortcut(): string | null {
+  const platform = (navigator as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform || navigator.platform || '';
+  if (/mac/i.test(platform)) return 'Ctrl + ⌘ + Space';
+  if (/win/i.test(platform)) return 'Win + .';
+  return null;
+}
+
 export function Composer({
   accounts,
   parent,
@@ -395,6 +405,7 @@ export function Composer({
         )}
       </div>
       {emojiOpen && (
+        <div className="emoji-picker-wrap">
         <div className="emoji-picker" role="listbox" aria-label="Emoji">
           {COMPOSER_EMOJI.map((e) => (
             <button
@@ -408,9 +419,11 @@ export function Composer({
             </button>
           ))}
         </div>
+        {systemEmojiShortcut() && <p className="hint emoji-more">More emoji: {systemEmojiShortcut()}</p>}
+        </div>
       )}
       <div className="composer-foot">
-        <button
+        {!isTouch() && <button
           className={`emoji-toggle ${emojiOpen ? 'on' : ''}`}
           title="Emoji"
           aria-label="Emoji"
@@ -419,7 +432,7 @@ export function Composer({
           onClick={() => setEmojiOpen(!emojiOpen)}
         >
           😺
-        </button>
+        </button>}
         {limit - bytes <= 60 && (
           <span className={bytes > limit ? 'error' : 'hint'}>
             {bytes > limit ? `${bytes - limit} over the limit` : `${limit - bytes} characters left`}

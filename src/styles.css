@@ -1394,3 +1394,8 @@ button.brand {
     grid-template-columns: repeat(8, 1fr);
   }
 }
+
+.emoji-more {
+  margin: 6px 4px 0 !important;
+  font-size: 12px;
+}
