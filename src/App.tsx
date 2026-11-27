@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { type Cast, NETWORKS, type Network, peekProfile } from './api';
 import { react } from './write';
 import { AboutModal } from './About';
-import { type SharedFeed, SharedFeedModal, clearSharedFeedFromUrl, readSharedFeed } from './share';
+import { type SharedFeed, SharedFeedModal, clearSharedFeedFromUrl, fetchSharedFeed, readSharedFeed } from './share';
 import { useProfile } from './CastCard';
 import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, forgetKey, loadAccounts, migrateKeys, saveAccount } from './account';
 import { ColumnView } from './Column';
@@ -92,6 +92,12 @@ export default function App() {
   const [signingIn, setSigningIn] = useState<Network | 'choose' | null>(null);
   const [composing, setComposing] = useState<{ parent?: Cast; network?: Network } | null>(null);
   const hasAccount = Object.keys(accounts).length > 0;
+  useEffect(() => {
+    fetchSharedFeed().then((f) => {
+      if (f) setIncoming(f);
+      else if (location.pathname.startsWith('/f/')) history.replaceState(null, '', '/'); // expired or unknown link
+    });
+  }, []);
   useEffect(() => {
     migrateKeys(accounts).then((next) => next && setAccounts(next));
     // eslint-disable-next-line react-hooks/exhaustive-deps

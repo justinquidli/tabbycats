@@ -91,6 +91,60 @@ function withSecurityHeaders(res) {
   return out;
 }
 
+// ---- Shared feeds: short links with their own link previews ----
+const FEED_ID = /^[A-Za-z0-9]{8}$/;
+const SOURCE_TAG = { combined: 'Farcaster & Hypersnap', farcaster: 'Farcaster', hypersnap: 'Hypersnap' };
+
+function newFeedId() {
+  const abc = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789';
+  return [...crypto.getRandomValues(new Uint8Array(8))].map((b) => abc[b % abc.length]).join('');
+}
+
+// Accept only the fields a feed needs, with sane sizes (it all ends up in other people's previews).
+function cleanFeed(d) {
+  const fids = Array.isArray(d?.m) ? [...new Set(d.m.filter((x) => Number.isSafeInteger(x) && x > 0))].slice(0, 1000) : [];
+  if (!fids.length) return null;
+  const text = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]/g, '').trim().slice(0, max) : '');
+  const names = Array.isArray(d?.names) ? d.names.filter((n) => typeof n === 'string' && /^[a-z0-9][a-z0-9._-]{0,40}$/i.test(n)).slice(0, 3) : [];
+  return {
+    n: text(d.n, 60) || 'Shared feed',
+    e: text(d.e, 8) || '📋',
+    src: ['combined', 'farcaster', 'hypersnap'].includes(d.src) ? d.src : 'combined',
+    m: fids,
+    names,
+  };
+}
+
+async function createFeed(request, env) {
+  const feed = cleanFeed(await request.json().catch(() => null));
+  if (!feed) return json({ error: 'Invalid feed' }, 400);
+  const id = newFeedId();
+  await env.FEEDS.put(id, JSON.stringify(feed));
+  return json({ id, url: `https://${CANONICAL}/f/${id}` });
+}
+
+async function feedPage(request, env, id) {
+  const raw = await env.FEEDS.get(id);
+  const page = await env.ASSETS.fetch(new Request(new URL('/', request.url)));
+  if (!raw) return withSecurityHeaders(page);
+  const f = JSON.parse(raw);
+  const count = `${f.m.length} ${f.m.length === 1 ? 'account' : 'accounts'}`;
+  const who = f.names.length ? `: ${f.names.map((n) => '@' + n).join(', ')}${f.m.length > f.names.length ? ` and ${f.m.length - f.names.length} more` : ''}` : '';
+  const title = `${f.e} ${f.n}`;
+  const desc = `A TabbyCats feed on ${SOURCE_TAG[f.src]}, ${count}${who}. Add it to your board in one click, meow!`;
+  const set = (attr) => ({ element: (el) => el.setAttribute('content', attr) });
+  const rewritten = new HTMLRewriter()
+    .on('title', { element: (el) => el.setInnerContent(`${title} · TabbyCats`) })
+    .on('meta[property="og:title"]', set(title))
+    .on('meta[name="twitter:title"]', set(title))
+    .on('meta[property="og:description"]', set(desc))
+    .on('meta[name="twitter:description"]', set(desc))
+    .on('meta[name="description"]', set(desc))
+    .on('meta[property="og:url"]', set(`https://${CANONICAL}/f/${id}`))
+    .transform(page);
+  return withSecurityHeaders(rewritten);
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -108,6 +162,19 @@ export default {
         return json({ error: 'Too many sign-in attempts. Try again in a minute.' }, 429);
       return signerRequest(request, env);
     }
+    if (request.method === 'POST' && url.pathname === '/api/feeds') {
+      if (request.headers.get('origin') !== `https://${CANONICAL}`) return json({ error: 'Forbidden' }, 403);
+      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+      if (env.SHARE_LIMIT && !(await env.SHARE_LIMIT.limit({ key: ip })).success) return json({ error: 'Too many shares. Try again in a minute.' }, 429);
+      return createFeed(request, env);
+    }
+    const feedApi = url.pathname.match(/^\/api\/feeds\/([A-Za-z0-9]{8})$/);
+    if (request.method === 'GET' && feedApi) {
+      const raw = await env.FEEDS.get(feedApi[1]);
+      return raw ? new Response(raw, { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' } }) : json({ error: 'Not found' }, 404);
+    }
+    const feedLink = url.pathname.match(/^\/f\/([A-Za-z0-9]{8})$/);
+    if (request.method === 'GET' && feedLink && FEED_ID.test(feedLink[1])) return feedPage(request, env, feedLink[1]);
     if (request.method === 'POST' && url.pathname === '/api/submit') {
       const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
       if (env.SUBMIT_LIMIT && !(await env.SUBMIT_LIMIT.limit({ key: ip })).success) return json({ error: 'Slow down a little' }, 429);

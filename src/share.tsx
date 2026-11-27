@@ -23,23 +23,50 @@ const toBase64Url = (s: string) =>
 const fromBase64Url = (s: string) =>
   new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
 
-export function shareLink(col: Column, by?: { network: Network; fid: number }) {
-  const data = {
-    v: 1,
-    n: col.name,
-    e: col.emoji,
-    src: col.source,
-    m: (col.members ?? []).map((m) => m.fid).slice(0, MAX_MEMBERS),
-    ...(by ? { by: [by.network === 'farcaster' ? 'f' : 'h', by.fid] } : {}),
-  };
+// Short link (tabbycats.party/f/<id>) with its own link preview; falls back to a long link
+// that carries the whole list in the URL if the short-link service is unavailable.
+export async function shareLink(col: Column): Promise<string> {
+  const members = (col.members ?? []).slice(0, MAX_MEMBERS);
+  const data = { v: 1, n: col.name, e: col.emoji, src: col.source, m: members.map((m) => m.fid) };
+  try {
+    const res = await fetch('/api/feeds', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ...data, names: members.map((m) => m.username).filter(Boolean).slice(0, 3) }),
+    });
+    if (res.ok) return (await res.json()).url;
+  } catch {
+    /* fall back below */
+  }
   return `${location.origin}/#feed=${toBase64Url(JSON.stringify(data))}`;
+}
+
+// Short links: /f/<id>
+export async function fetchSharedFeed(): Promise<SharedFeed | null> {
+  const m = location.pathname.match(/^\/f\/([A-Za-z0-9]{8})$/);
+  if (!m) return null;
+  try {
+    const res = await fetch(`/api/feeds/${m[1]}`);
+    if (!res.ok) return null;
+    return parseFeed(await res.json());
+  } catch {
+    return null;
+  }
 }
 
 export function readSharedFeed(): SharedFeed | null {
   const m = location.hash.match(/^#feed=([A-Za-z0-9_-]+)$/);
   if (!m) return null;
   try {
-    const d = JSON.parse(fromBase64Url(m[1]));
+    return parseFeed(JSON.parse(fromBase64Url(m[1])));
+  } catch {
+    return null;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseFeed(d: any): SharedFeed | null {
+  try {
     const source: Source = d.src === 'farcaster' || d.src === 'hypersnap' ? d.src : 'combined'; // older links had no source
     const fids = Array.isArray(d.m)
       ? [...new Set<number>(d.m.filter((x: unknown) => Number.isInteger(x) && (x as number) > 0))].slice(0, MAX_MEMBERS)
@@ -56,7 +83,7 @@ export function readSharedFeed(): SharedFeed | null {
 }
 
 export function clearSharedFeedFromUrl() {
-  history.replaceState(null, '', location.pathname + location.search);
+  history.replaceState(null, '', location.pathname.startsWith('/f/') ? '/' : location.pathname + location.search);
 }
 
 const profileNet = (feed: SharedFeed, fid: number): Network =>

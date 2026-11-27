@@ -216,7 +216,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
   const [cutoff, setCutoff] = useState(() => Date.now());
   const body = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState(PAGE);
-  const [shared, setShared] = useState(false);
+  const [shared, setShared] = useState<'' | 'making' | 'copied'>('');
 
   const merged = useMemo(() => {
     let list: Cast[];
@@ -328,22 +328,23 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
                 <button
                   className="btn-quiet"
                   onClick={async () => {
-                    const byNet: Network | undefined = accounts.farcaster ? 'farcaster' : accounts.hypersnap ? 'hypersnap' : undefined;
-                    const by = byNet ? { network: byNet, fid: accounts[byNet]!.fid } : undefined;
-                    const url = shareLink(col, by);
+                    setShared('making');
+                    const url = await shareLink(col);
                     try {
-                      if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ title: col.name, url });
-                      else {
+                      if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+                        setShared('');
+                        await navigator.share({ title: col.name, url });
+                      } else {
                         await navigator.clipboard.writeText(url);
-                        setShared(true);
-                        setTimeout(() => setShared(false), 2000);
+                        setShared('copied');
+                        setTimeout(() => setShared(''), 2000);
                       }
                     } catch {
-                      /* share sheet dismissed or clipboard blocked */
+                      setShared(''); /* share sheet dismissed or clipboard blocked */
                     }
                   }}
                 >
-                  {shared ? 'Link copied ✓' : '🔗 Copy share link'}
+                  {shared === 'copied' ? 'Link copied ✓' : shared === 'making' ? 'Making link…' : '🔗 Copy share link'}
                 </button>
                 <span className="hint">Anyone with the link can add a copy of this feed.</span>
               </div>
