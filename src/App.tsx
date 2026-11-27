@@ -54,13 +54,12 @@ function Welcome({ onStart }: { onStart: () => void }) {
       <div className="welcome-card">
         <img className="welcome-logo" src="/pfp-2.png" alt="TabbyCats" />
         <h1>Welcome to TabbyCats</h1>
-        <p>Farcaster and Hypersnap, side by side. Start with everything, plus what's posted from each side.</p>
+        <p>Curate multiple feeds on Farcaster &amp; Hypersnap in a single client, meow! 😺</p>
         <div className="welcome-actions">
           <button className="btn" onClick={onStart}>
             Start prowling
           </button>
         </div>
-        <p className="hint">Add, remove and rearrange feeds any time. No herding required.</p>
         <p className="hint">
           News and updates:{' '}
           <a href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
