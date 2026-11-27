@@ -1259,3 +1259,13 @@ button.brand {
 .col-tools {
   margin-left: auto;
 }
+
+.welcome-notes {
+  text-align: left;
+  border-top: 1px solid var(--line);
+  padding-top: 14px;
+}
+
+.welcome-notes .hint + .hint {
+  margin-top: 6px;
+}

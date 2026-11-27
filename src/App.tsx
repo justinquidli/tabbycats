@@ -60,6 +60,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
             Start prowling
           </button>
         </div>
+        <div className="welcome-notes">
         <p className="hint">Add, remove and rearrange feeds any time. No herding required.</p>
         <p className="hint">
           News and updates: @tabbycats on{' '}
@@ -71,6 +72,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
             Hypersnap
           </a>
         </p>
+        </div>
       </div>
     </div>
   );
