@@ -1279,6 +1279,7 @@ button.brand {
 
 .welcome-card .welcome-lead {
   text-align: left;
+  text-wrap: balance; /* split into even lines instead of leaving a word or two alone */
 }
 
 /* Welcome card: everything flush left, one alignment throughout */
