@@ -281,6 +281,12 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
         </span>
         {col.kind === 'all' && fh.status === 'live' && <span className="live-dot" title="Live" />}
         <div className="col-tools">
+          <button title="Move left" aria-label="Move feed left" disabled={index === 0} onClick={() => onMove(-1)}>
+            ‹
+          </button>
+          <button title="Move right" aria-label="Move feed right" disabled={index === count - 1} onClick={() => onMove(1)}>
+            ›
+          </button>
           <button title="Edit feed" aria-label="Edit feed" className={editing ? 'on' : ''} onClick={() => setEditing(!editing)}>
             ⚙
           </button>
@@ -344,12 +350,6 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
             </div>
           )}
           <div className="settings-actions">
-            <button className="btn-quiet" disabled={index === 0} onClick={() => onMove(-1)}>
-              ← Move
-            </button>
-            <button className="btn-quiet" disabled={index === count - 1} onClick={() => onMove(1)}>
-              Move →
-            </button>
             <button
               className="btn-danger"
               onClick={() => {

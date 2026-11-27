@@ -1213,3 +1213,18 @@ button.brand {
 .add-column .source-switch {
   margin-bottom: 4px;
 }
+
+/* Move arrows in feed headers */
+.col-tools button {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.col-tools button:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.col-tools button:disabled:hover {
+  background: transparent;
+}
