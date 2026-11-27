@@ -17,6 +17,7 @@ export interface Column {
   emoji: string;
   handle?: string; // following: whose follows to show
   members?: Member[]; // list
+  description?: string; // custom feeds: shown in share-link previews
   hideReplies?: boolean;
 }
 

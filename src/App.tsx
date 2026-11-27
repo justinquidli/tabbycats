@@ -167,7 +167,7 @@ export default function App() {
             setIncoming(null);
           }}
           onAdd={(members) => {
-            const col = { ...presetColumn(incoming.source, 'list'), name: incoming.name, emoji: incoming.emoji, members };
+            const col = { ...presetColumn(incoming.source, 'list'), name: incoming.name, emoji: incoming.emoji, description: incoming.description, members };
             setJustAdded(col.id);
             // First visit straight from a share link: start them with the basics plus this feed
             setState((s) =>

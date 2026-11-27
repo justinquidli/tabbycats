@@ -10,6 +10,7 @@ export interface SharedFeed {
   emoji: string;
   source: Source;
   fids: number[];
+  description?: string;
   by?: { network: Network; fid: number };
 }
 
@@ -27,7 +28,7 @@ const fromBase64Url = (s: string) =>
 // that carries the whole list in the URL if the short-link service is unavailable.
 export async function shareLink(col: Column): Promise<string> {
   const members = (col.members ?? []).slice(0, MAX_MEMBERS);
-  const data = { v: 1, n: col.name, e: col.emoji, src: col.source, m: members.map((m) => m.fid) };
+  const data = { v: 1, n: col.name, e: col.emoji, d: col.description?.trim() || undefined, src: col.source, m: members.map((m) => m.fid) };
   try {
     const res = await fetch('/api/feeds', {
       method: 'POST',
@@ -76,7 +77,8 @@ function parseFeed(d: any): SharedFeed | null {
       Array.isArray(d.by) && Number.isInteger(d.by[1])
         ? { network: (d.by[0] === 'h' ? 'hypersnap' : 'farcaster') as Network, fid: d.by[1] as number }
         : undefined;
-    return { name: String(d.n || 'Shared feed').slice(0, 60), emoji: String(d.e || '📋').slice(0, 8), source, fids, by };
+    const description = typeof d.d === 'string' ? d.d.trim().slice(0, 200) : '';
+    return { name: String(d.n || 'Shared feed').slice(0, 60), emoji: String(d.e || '📋').slice(0, 8), description: description || undefined, source, fids, by };
   } catch {
     return null;
   }
@@ -122,6 +124,7 @@ export function SharedFeedModal({
         </button>
         <div className="shared-emoji">{feed.emoji}</div>
         <h2>{feed.name}</h2>
+        {feed.description && <p className="shared-description">{feed.description}</p>}
         <p className="shared-meta">
           <span className={`net net-${feed.source}`}>{SOURCES[feed.source].tag}</span>
           {feed.fids.length} {feed.fids.length === 1 ? 'account' : 'accounts'}

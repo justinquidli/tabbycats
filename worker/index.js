@@ -108,6 +108,7 @@ function cleanFeed(d) {
   const names = Array.isArray(d?.names) ? d.names.filter((n) => typeof n === 'string' && /^[a-z0-9][a-z0-9._-]{0,40}$/i.test(n)).slice(0, 3) : [];
   return {
     n: text(d.n, 60) || 'Shared feed',
+    d: text(d.d, 200),
     e: text(d.e, 8) || '📋',
     src: ['combined', 'farcaster', 'hypersnap'].includes(d.src) ? d.src : 'combined',
     m: fids,
@@ -131,7 +132,8 @@ async function feedPage(request, env, id) {
   const count = `${f.m.length} ${f.m.length === 1 ? 'account' : 'accounts'}`;
   const who = f.names.length ? `: ${f.names.map((n) => '@' + n).join(', ')}${f.m.length > f.names.length ? ` and ${f.m.length - f.names.length} more` : ''}` : '';
   const title = `${f.e} ${f.n}`;
-  const desc = `A TabbyCats feed on ${SOURCE_TAG[f.src]}, ${count}${who}. Add it to your board in one click, meow!`;
+  // The curator's own description if there is one; otherwise who's in it
+  const desc = f.d || `A TabbyCats feed on ${SOURCE_TAG[f.src]}, ${count}${who}. Add it to your board in one click, meow!`;
   const set = (attr) => ({ element: (el) => el.setAttribute('content', attr) });
   const rewritten = new HTMLRewriter()
     .on('title', { element: (el) => el.setInnerContent(`${title} · TabbyCats`) })

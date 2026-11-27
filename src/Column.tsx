@@ -306,6 +306,20 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
               <HandleForm initial={col.handle} label="Update" onSubmit={(h) => onChange({ handle: h })} />
             </div>
           )}
+          {col.kind === 'list' && (
+            <div className="field">
+              <label>Description</label>
+              <textarea
+                className="feed-description"
+                value={col.description ?? ''}
+                maxLength={200}
+                rows={2}
+                placeholder="What's this feed about? Shown when you share it."
+                onChange={(e) => onChange({ description: e.target.value })}
+                aria-label="Feed description"
+              />
+            </div>
+          )}
           {col.kind === 'list' && <MemberEditor source={source} col={col} onChange={onChange} />}
           <label className="check">
             <input type="checkbox" checked={!!col.hideReplies} onChange={(e) => onChange({ hideReplies: e.target.checked })} />
