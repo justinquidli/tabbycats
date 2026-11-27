@@ -138,7 +138,7 @@ export default function App() {
 
   const add = (kind: ColumnKind) => {
     const col = presetColumn(state.lastSource, kind);
-    setJustAdded(kind === 'list' ? col.id : null);
+    setJustAdded(col.id); // scroll to it (and open settings for custom feeds)
     setColumns((cols) => [...cols, col]);
   };
 
@@ -151,6 +151,7 @@ export default function App() {
           }}
           onAdd={(members) => {
             const col = { ...presetColumn(incoming.source, 'list'), name: incoming.name, emoji: incoming.emoji, members };
+            setJustAdded(col.id);
             // First visit straight from a share link: start them with the basics plus this feed
             setState((s) =>
               s.onboarded
@@ -256,7 +257,7 @@ export default function App() {
             col={col}
             index={i}
             count={columns.length}
-            startEditing={col.id === justAdded}
+            justAdded={col.id === justAdded}
             muted={mutedSet}
             onMute={(fid, username) => mute(col.source === 'hypersnap' ? 'hypersnap' : 'farcaster', fid, username)}
             onChange={(patch) => setColumns((cols) => cols.map((c) => (c.id === col.id ? { ...c, ...patch } : c)))}

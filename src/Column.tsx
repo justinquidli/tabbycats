@@ -124,7 +124,7 @@ function EmojiField({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-function HandleForm({ initial, label, onSubmit }: { initial?: string; label: string; onSubmit: (h: string) => void }) {
+function HandleForm({ initial, label, onSubmit, autoFocus }: { initial?: string; label: string; onSubmit: (h: string) => void; autoFocus?: boolean }) {
   const [v, setV] = useState(initial ?? '');
   return (
     <form
@@ -134,7 +134,7 @@ function HandleForm({ initial, label, onSubmit }: { initial?: string; label: str
         if (v.trim()) onSubmit(v.trim().replace(/^@/, ''));
       }}
     >
-      <input value={v} onChange={(e) => setV(e.target.value)} placeholder="@handle" aria-label="Handle" />
+      <input value={v} onChange={(e) => setV(e.target.value)} placeholder="@handle" aria-label="Handle" autoFocus={autoFocus} />
       <button className="btn">{label}</button>
     </form>
   );
@@ -162,7 +162,7 @@ function MemberEditor({ source, col, onChange }: { source: Source; col: Column; 
   return (
     <div className="field">
       <label>Accounts in this feed</label>
-      <HandleForm label={busy ? 'Adding…' : 'Add'} onSubmit={add} key={members.length} />
+      <HandleForm label={busy ? 'Adding…' : 'Add'} onSubmit={add} key={members.length} autoFocus={!members.length} />
       {error && <div className="error">{error}</div>}
       <div className="chips">
         {members.map((m) => (
@@ -183,7 +183,7 @@ interface Props {
   col: Column;
   index: number;
   count: number;
-  startEditing: boolean;
+  justAdded: boolean; // newly created: bring it into view
   onChange: (patch: Partial<Column>) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
@@ -191,7 +191,7 @@ interface Props {
   onMute: (fid: number, username?: string) => void;
 }
 
-export function ColumnView({ col, index, count, startEditing, onChange, onRemove, onMove, muted, onMute }: Props) {
+export function ColumnView({ col, index, count, justAdded, onChange, onRemove, onMove, muted, onMute }: Props) {
   const source = col.source;
   const fh = useCombinedFirehose();
   const { accounts } = useWrite();
@@ -204,7 +204,14 @@ export function ColumnView({ col, index, count, startEditing, onChange, onRemove
   );
   const fids = useColumnFids(source, effective);
   const history = useHistory(source, col.kind === 'all' ? undefined : fids.fids);
-  const [editing, setEditing] = useState(startEditing);
+  // Custom feeds open their settings right away so you can add accounts
+  const [editing, setEditing] = useState(justAdded && col.kind === 'list');
+  const section = useRef<HTMLElement>(null);
+  useEffect(() => {
+    // New feeds land at the end of the board, often off-screen (always on phones)
+    if (justAdded) section.current?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // New casts wait behind a "new casts" button instead of pushing the column around.
   const [cutoff, setCutoff] = useState(() => Date.now());
   const body = useRef<HTMLDivElement>(null);
@@ -265,7 +272,7 @@ export function ColumnView({ col, index, count, startEditing, onChange, onRemove
   }
 
   return (
-    <section className="column">
+    <section className="column" ref={section}>
       <header className="col-head">
         <span className="col-emoji">{col.emoji || '📋'}</span>
         <h2 title={col.name}>{col.name || 'Untitled'}</h2>
