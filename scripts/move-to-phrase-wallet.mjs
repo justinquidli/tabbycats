@@ -1,6 +1,7 @@
 // Move @tabbycats to a new custody wallet that has a 24-word recovery phrase, so the account
 // can be opened in the Farcaster app. Idempotent: safe to re-run after a partial failure.
-// Keys live in ~/.tabbycats (never in the repo).
+// Keys live in ~/.tabbycats (never in the repo). Already done for @tabbycats on 2026-11-27;
+// the plain-text phrase was deleted afterwards, so re-running this would create a new wallet.
 import fs from 'node:fs';
 import { createPublicClient, createWalletClient, http, bytesToHex } from 'viem';
 import { optimism } from 'viem/chains';

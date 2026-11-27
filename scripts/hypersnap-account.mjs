@@ -5,7 +5,7 @@
 // Message formats follow Quilcast's client (quilcast.com), which talks to the same node.
 import fs from 'node:fs';
 import { createHash, randomBytes } from 'node:crypto';
-import { mnemonicToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { ed25519 } from '@noble/curves/ed25519';
 import { blake3 } from '@noble/hashes/blake3';
 
@@ -62,7 +62,7 @@ async function nativeFid(address) {
   throw new Error(body.error ?? `HTTP ${res.status}`);
 }
 
-const custody = mnemonicToAccount(fs.readFileSync(`${DIR}/recovery-phrase.txt`, 'utf8').trim());
+const custody = privateKeyToAccount(JSON.parse(fs.readFileSync(`${DIR}/custody.json`, 'utf8')).privateKey); // the phrase wallet's key
 console.log('custody', custody.address);
 
 // 1. Register the account

@@ -6,7 +6,7 @@
 // The ENS name must resolve to the account's custody wallet (the recovery-phrase wallet).
 import fs from 'node:fs';
 import { bytesToHex, hexToBytes } from 'viem';
-import { mnemonicToAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import * as fc from '@farcaster/core';
 
 const [network, name] = process.argv.slice(2);
@@ -20,7 +20,7 @@ if (!SETUP || !name?.endsWith('.eth')) {
 }
 
 const DIR = `${process.env.HOME}/.tabbycats`;
-const custody = mnemonicToAccount(fs.readFileSync(`${DIR}/recovery-phrase.txt`, 'utf8').trim());
+const custody = privateKeyToAccount(JSON.parse(fs.readFileSync(`${DIR}/custody.json`, 'utf8')).privateKey); // the phrase wallet's key
 const signer = new fc.NobleEd25519Signer(hexToBytes(JSON.parse(fs.readFileSync(`${DIR}/${SETUP.keyFile}`, 'utf8')).privateKey));
 const options = { fid: SETUP.fid, network: fc.FarcasterNetwork.MAINNET };
 
