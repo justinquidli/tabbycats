@@ -1,6 +1,7 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { type Cast, type Network, type Profile, getProfile, peekProfile } from './api';
 import { CLIENTS, clientFor } from './clients';
+import { useWrite } from './account';
 
 export function useProfile(network: Network, fid: number): Profile | undefined {
   const [profile, setProfile] = useState(() => peekProfile(network, fid));
@@ -130,6 +131,21 @@ export const CastCard = memo(function CastCard({
   const preferred = clientFor(cast.network, openInId);
   const others = CLIENTS[cast.network].filter((c) => c.id !== preferred.id);
   const [copied, setCopied] = useState(false);
+  const write = useWrite();
+  const [done, setDone] = useState<{ like?: boolean; recast?: boolean }>({});
+  const [failed, setFailed] = useState('');
+  const canWrite = cast.network === 'farcaster';
+  const doReact = async (kind: 'like' | 'recast') => {
+    if (done[kind]) return;
+    setFailed('');
+    setDone((d) => ({ ...d, [kind]: true }));
+    try {
+      await write.react(kind, cast);
+    } catch (e) {
+      setDone((d) => ({ ...d, [kind]: false }));
+      if (write.account) setFailed((e as Error).message);
+    }
+  };
 
   const copy = async () => {
     try {
@@ -160,6 +176,20 @@ export const CastCard = memo(function CastCard({
         {cast.parent && <ReplyTo cast={cast} />}
         <CastText cast={cast} />
         <Embeds cast={cast} openInId={openInId} />
+        {canWrite && (
+          <div className="cast-write">
+            <button onClick={() => write.compose(cast)} title="Reply">
+              💬 Reply
+            </button>
+            <button className={done.recast ? 'on' : ''} onClick={() => doReact('recast')} title="Recast">
+              🔁 {done.recast ? 'Recasted' : 'Recast'}
+            </button>
+            <button className={done.like ? 'on' : ''} onClick={() => doReact('like')} title="Like">
+              {done.like ? '❤️ Liked' : '🤍 Like'}
+            </button>
+          </div>
+        )}
+        {failed && <div className="error">{failed}</div>}
         <footer className="cast-actions">
           <a href={preferred.url(cast, p?.username)} target="_blank" rel="noreferrer noopener">
             Open in {preferred.label} ↗

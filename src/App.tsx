@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { NETWORKS, type Network } from './api';
+import { type Cast, NETWORKS, type Network, peekProfile } from './api';
+import { Composer, type FcAccount, SignInModal, WriteContext, loadAccount, saveAccount } from './account';
 import { ColumnView } from './Column';
 import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
 
@@ -69,6 +70,30 @@ export default function App() {
   const [state, setState] = useAppState();
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [showMuted, setShowMuted] = useState(false);
+  const [account, setAccount] = useState<FcAccount | null>(loadAccount);
+  const [signingIn, setSigningIn] = useState(false);
+  const [composing, setComposing] = useState<{ parent?: Cast } | null>(null);
+  const [toast, setToast] = useState('');
+  const flash = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 2500);
+  };
+  const writeApi = useMemo(
+    () => ({
+      account,
+      signIn: () => setSigningIn(true),
+      compose: (parent?: Cast) => (account ? setComposing({ parent }) : setSigningIn(true)),
+      react: async (kind: 'like' | 'recast', cast: Cast) => {
+        if (!account) {
+          setSigningIn(true);
+          throw new Error('signed out');
+        }
+        const { react } = await import('./write');
+        await react(account, kind, { fid: cast.fid, hash: cast.hash });
+      },
+    }),
+    [account],
+  );
   const { columns } = state;
   const mutedSet = useMemo(() => new Set(state.muted.map((m) => `${m.network}:${m.fid}`)), [state.muted]);
   const mute = (network: Network, fid: number, username?: string) =>
@@ -97,6 +122,7 @@ export default function App() {
   }
 
   return (
+    <WriteContext.Provider value={writeApi}>
     <div className="app">
       <header className="topbar">
         <div className="brand">
@@ -104,11 +130,37 @@ export default function App() {
           <span className="wordmark">TabbyCats</span>
         </div>
         <div className="prefs">
+          {account ? (
+            <>
+              <button className="btn small" onClick={() => setComposing({})}>
+                ＋ Cast
+              </button>
+              <span className="chip">
+                @{account.username ?? account.fid}
+                <button
+                  title="Sign out"
+                  aria-label="Sign out"
+                  onClick={() => {
+                    if (confirm('Sign out of Farcaster on this device?')) {
+                      saveAccount(null);
+                      setAccount(null);
+                    }
+                  }}
+                >
+                  ⎋
+                </button>
+              </span>
+            </>
+          ) : (
+            <button className="btn small" onClick={() => setSigningIn(true)}>
+              Sign in with Farcaster
+            </button>
+          )}
           <button className="btn-quiet small" onClick={() => setShowMuted(!showMuted)} aria-expanded={showMuted}>
             Muted ({state.muted.length})
           </button>
           <span className="badge" title="Your board is saved in this browser only">
-            Read-only · saved on this device
+            Saved on this device
           </span>
         </div>
       </header>
@@ -164,6 +216,29 @@ export default function App() {
         ))}
         <AddColumn network={state.lastNetwork} onNetwork={(n) => setState((s) => ({ ...s, lastNetwork: n }))} onAdd={add} />
       </main>
+
+      {signingIn && (
+        <SignInModal
+          onClose={() => setSigningIn(false)}
+          onDone={(a) => {
+            saveAccount(a);
+            setAccount(a);
+            setSigningIn(false);
+            flash(`Signed in as @${a.username ?? a.fid}`);
+          }}
+        />
+      )}
+      {composing && account && (
+        <Composer
+          account={account}
+          parent={composing.parent}
+          parentName={composing.parent ? peekProfile('farcaster', composing.parent.fid)?.username : undefined}
+          onClose={() => setComposing(null)}
+          onSent={() => flash(composing.parent ? 'Reply sent' : 'Cast sent')}
+        />
+      )}
+      {toast && <div className="toast">{toast}</div>}
     </div>
+    </WriteContext.Provider>
   );
 }
