@@ -1414,3 +1414,14 @@ button.brand {
   font-size: 15px;
   max-width: 340px;
 }
+
+/* Handle suggestions in feed settings */
+.handle-form {
+  position: relative;
+  flex-wrap: wrap;
+}
+
+.handle-suggestions {
+  flex-basis: 100%;
+  margin-top: 0;
+}

@@ -3,6 +3,7 @@ import { type Cast, type Network, getCastsByFid, getFollowing, getProfile, resol
 import { CastBoundary, CastCard } from './CastCard';
 import type { Column } from './store';
 import { useWrite } from './account';
+import { useMentionSuggestions } from './mentions';
 import { FIRST_NATIVE_FID, SOURCES, type Source, mergeByHash, useCombinedFirehose, useSourceFilter } from './sources';
 import { shareLink } from './share';
 
@@ -124,18 +125,83 @@ function EmojiField({ value, onChange }: { value: string; onChange: (v: string) 
   );
 }
 
-function HandleForm({ initial, label, onSubmit, autoFocus }: { initial?: string; label: string; onSubmit: (h: string) => void; autoFocus?: boolean }) {
+function HandleForm({
+  initial,
+  label,
+  onSubmit,
+  autoFocus,
+  network = 'farcaster',
+}: {
+  initial?: string;
+  label: string;
+  onSubmit: (h: string) => void;
+  autoFocus?: boolean;
+  network?: Network;
+}) {
   const [v, setV] = useState(initial ?? '');
+  const [focused, setFocused] = useState(false);
+  const [picked, setPicked] = useState(0);
+  const { accounts } = useWrite();
+  const me = accounts[network] ?? accounts.farcaster;
+  const query = v.trim().replace(/^@/, '');
+  // Same suggestions as the composer: people you follow, people in your feeds, exact names
+  const suggestions = useMentionSuggestions(focused && query ? query : null, network, me?.fid);
+  const showList = focused && suggestions.length > 0 && !suggestions.some((s) => s.username === query);
+  useEffect(() => setPicked(0), [query]);
+  const submit = (h: string) => {
+    onSubmit(h.trim().replace(/^@/, ''));
+  };
   return (
     <form
-      className="inline-form"
+      className="inline-form handle-form"
       onSubmit={(e) => {
         e.preventDefault();
-        if (v.trim()) onSubmit(v.trim().replace(/^@/, ''));
+        if (showList) submit(suggestions[picked].username);
+        else if (query) submit(query);
       }}
     >
-      <input value={v} onChange={(e) => setV(e.target.value)} placeholder="@handle" aria-label="Handle" autoFocus={autoFocus} />
+      <input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        onKeyDown={(e) => {
+          if (!showList) return;
+          if (e.key === 'ArrowDown') return e.preventDefault(), setPicked((picked + 1) % suggestions.length);
+          if (e.key === 'ArrowUp') return e.preventDefault(), setPicked((picked - 1 + suggestions.length) % suggestions.length);
+          if (e.key === 'Escape') return setFocused(false);
+        }}
+        placeholder="@handle"
+        aria-label="Handle"
+        autoFocus={autoFocus}
+        autoCapitalize="off"
+        autoCorrect="off"
+        spellCheck={false}
+      />
       <button className="btn">{label}</button>
+      {showList && (
+        <ul className="mention-list handle-suggestions" role="listbox" aria-label="Suggestions">
+          {suggestions.map((s, i) => (
+            <li key={s.username}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={i === picked}
+                className={i === picked ? 'on' : ''}
+                onPointerDown={(e) => e.preventDefault()} // keep focus (and the phone keyboard) on the box
+                onClick={() => {
+                  setV('');
+                  submit(s.username);
+                }}
+              >
+                {s.pfp ? <img src={s.pfp} alt="" referrerPolicy="no-referrer" /> : <span className="mention-dot">🐈</span>}
+                <b>@{s.username}</b>
+                {s.display && <span>{s.display}</span>}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </form>
   );
 }
@@ -162,7 +228,7 @@ function MemberEditor({ source, col, onChange }: { source: Source; col: Column; 
   return (
     <div className="field">
       <label>Accounts in this feed</label>
-      <HandleForm label={busy ? 'Adding…' : 'Add'} onSubmit={add} key={members.length} autoFocus={!members.length} />
+      <HandleForm label={busy ? 'Adding…' : 'Add'} onSubmit={add} key={members.length} autoFocus={!members.length} network={graphNetwork(source)} />
       {error && <div className="error">{error}</div>}
       <div className="chips">
         {members.map((m) => (
@@ -253,7 +319,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
     notice = (
       <div className="empty">
         <p>Whose follows should this feed keep an eye on?</p>
-        <HandleForm label="Show" onSubmit={(h) => onChange({ handle: h })} />
+        <HandleForm label="Show" onSubmit={(h) => onChange({ handle: h })} network={graphNetwork(source)} />
       </div>
     );
   } else if (col.kind === 'list' && !(col.members ?? []).length && !editing) {
@@ -303,7 +369,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
           {col.kind === 'following' && (
             <div className="field">
               <label>Show follows of</label>
-              <HandleForm initial={col.handle} label="Update" onSubmit={(h) => onChange({ handle: h })} />
+              <HandleForm initial={col.handle} label="Update" onSubmit={(h) => onChange({ handle: h })} network={graphNetwork(source)} />
             </div>
           )}
           {col.kind === 'list' && (
