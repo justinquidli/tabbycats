@@ -49,7 +49,7 @@ const proof = (
       fid: SETUP.fid,
       type: fc.UserNameType.USERNAME_TYPE_ENS_L1,
     },
-    options,
+    { ...options, timestamp: timestamp - 1609459200 }, // must match the proof's own timestamp
     signer,
   )
 )._unsafeUnwrap();
