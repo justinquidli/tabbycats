@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { type Cast, NETWORKS, type Network, peekProfile } from './api';
 import { react } from './write';
+import { useProfile } from './CastCard';
 import { Composer, type FcAccount, SignInModal, WriteContext, loadAccount, saveAccount } from './account';
 import { ColumnView } from './Column';
 import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
@@ -73,6 +74,11 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
   );
 }
 
+function AccountPfp({ fid }: { fid: number }) {
+  const p = useProfile('farcaster', fid);
+  return p?.pfp ? <img className="account-pfp" src={p.pfp} alt="" referrerPolicy="no-referrer" /> : null;
+}
+
 export default function App() {
   const [state, setState] = useAppState();
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -142,6 +148,7 @@ export default function App() {
                 ＋ Cast
               </button>
               <span className="chip">
+                <AccountPfp fid={account.fid} />
                 @{account.username ?? account.fid}
                 <button
                   title="Sign out"
