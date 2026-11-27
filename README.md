@@ -3,7 +3,7 @@
 A simple, column-based reader for **Farcaster** and **Hypersnap**. Line up the feeds you care about side by side, like a board.
 
 - **🌊 All**: every new cast from Farcaster and Hypersnap, live, newest first, without duplicates
-- **🟣 Farcaster only / 🟠 Hypersnap only**: casts that exist on just one network (accounts from before the Nov 2026 split post to both, so these are the exclusives)
+- **⛩️ Farcaster only / 🫰 Hypersnap only**: casts that exist on just one network (accounts from before the Nov 2026 split post to both, so these are the exclusives)
 - **👥 Following**: casts from the accounts someone follows
 - **📋 Custom feeds**: pick the accounts yourself, and share them as a link
 - Rename columns, give them an emoji, reorder, hide replies, pause, remove

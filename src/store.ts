@@ -43,8 +43,8 @@ export const newId = () =>
 
 export function presetColumn(source: Source, kind: ColumnKind): Column {
   if (kind === 'all') {
-    if (source === 'farcaster') return { id: newId(), source, kind, name: 'Farcaster only', emoji: '🟣' };
-    if (source === 'hypersnap') return { id: newId(), source, kind, name: 'Hypersnap only', emoji: '🟠' };
+    if (source === 'farcaster') return { id: newId(), source, kind, name: 'Farcaster only', emoji: '⛩️' };
+    if (source === 'hypersnap') return { id: newId(), source, kind, name: 'Hypersnap only', emoji: '🫰' };
     return { id: newId(), source, kind, name: 'All', emoji: '🌊' };
   }
   if (kind === 'following') return { id: newId(), source, kind, name: 'Following', emoji: '👥' };
@@ -61,7 +61,14 @@ function initial(): AppState {
   const fallback: AppState = { columns: [], muted: [], onboarded: false, lastSource: 'combined' };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null');
-    if (Array.isArray(saved?.columns)) return { ...fallback, ...saved };
+    if (Array.isArray(saved?.columns)) {
+      // Swap the first default icons for the network ones, unless someone picked their own
+      const icons: Record<string, [string, string]> = { farcaster: ['🟣', '⛩️'], hypersnap: ['🟠', '🫰'] };
+      const columns = (saved.columns as Column[]).map((c) =>
+        c.kind === 'all' && icons[c.source] && c.emoji === icons[c.source][0] ? { ...c, emoji: icons[c.source][1] } : c,
+      );
+      return { ...fallback, ...saved, columns };
+    }
 
     // Upgrade from per-network feeds: start with the new defaults, keep one Following feed
     // and every custom feed (now combined), and drop the near-duplicate per-network "All" feeds.
