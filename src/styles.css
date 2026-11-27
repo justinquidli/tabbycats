@@ -851,3 +851,18 @@ time {
   font-size: 14px;
   z-index: 20;
 }
+
+.follow-link {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.follow-link:hover {
+  text-decoration: underline;
+}
+
+.welcome-card .hint + .hint {
+  margin-top: 6px;
+}

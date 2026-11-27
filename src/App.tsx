@@ -46,7 +46,7 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
   return (
     <div className="welcome">
       <div className="welcome-card">
-        <img className="welcome-logo" src="/pfp.png" alt="TabbyCats" />
+        <img className="welcome-logo" src="/pfp-2.png" alt="TabbyCats" />
         <h1>Welcome to TabbyCats</h1>
         <p>Your feeds, side by side. Which network do you read?</p>
         <div className="welcome-actions">
@@ -61,6 +61,12 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
           </button>
         </div>
         <p className="hint">You can add or remove columns from either network any time.</p>
+        <p className="hint">
+          News and updates:{' '}
+          <a href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
+            @tabbycats
+          </a>
+        </p>
       </div>
     </div>
   );
@@ -126,7 +132,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <img className="logo" src="/pfp.png" alt="" />
+          <img className="logo" src="/pfp-2.png" alt="" />
           <span className="wordmark">TabbyCats</span>
         </div>
         <div className="prefs">
@@ -159,6 +165,9 @@ export default function App() {
           <button className="btn-quiet small" onClick={() => setShowMuted(!showMuted)} aria-expanded={showMuted}>
             Muted ({state.muted.length})
           </button>
+          <a className="follow-link" href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
+            Follow @tabbycats
+          </a>
           <span className="badge" title="Your board is saved in this browser only">
             Saved on this device
           </span>
