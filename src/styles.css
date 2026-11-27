@@ -901,3 +901,17 @@ time {
 .open-menu a:hover {
   background: var(--light-orange);
 }
+
+.open-menu .open-credit {
+  flex-basis: 100%;
+  font-size: 11px;
+  color: var(--dark-orange);
+}
+
+.open-menu .open-credit a {
+  background: none;
+  padding: 0;
+  font-weight: 600;
+  color: var(--dark-orange);
+  text-decoration: underline;
+}

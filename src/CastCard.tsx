@@ -212,6 +212,12 @@ export const CastCard = memo(function CastCard({
                 {l.label}
               </a>
             ))}
+            <span className="open-credit">
+              Client list from{' '}
+              <a href="https://forkcaster.xyz" target="_blank" rel="noreferrer noopener">
+                Forkcaster
+              </a>
+            </span>
           </nav>
         )}
       </div>
