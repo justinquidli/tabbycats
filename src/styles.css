@@ -1280,3 +1280,16 @@ button.brand {
 .welcome-card .welcome-lead {
   text-align: left;
 }
+
+/* Welcome card: everything flush left, one alignment throughout */
+.welcome-card {
+  text-align: left;
+}
+
+.welcome-card .welcome-logo {
+  margin: 0 0 12px;
+}
+
+.welcome-card .welcome-actions {
+  justify-content: flex-start;
+}
