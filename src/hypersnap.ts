@@ -10,7 +10,7 @@ import { keccak_256 } from '@noble/hashes/sha3';
 import { NETWORKS } from './api';
 import { createKey, deleteKey, getSigner } from './vault';
 
-const NODE = NETWORKS.hypersnap.node;
+const node = () => NETWORKS.hypersnap.node; // read each time: it can switch to a backup node
 const FARCASTER_EPOCH = 1609459200;
 const KEY_TTL = 7776000; // 90 days, same as Quilcast
 const SCOPES = [1, 2, 3, 4]; // only what TabbyCats does: casts and reactions (add/remove)
@@ -120,16 +120,16 @@ function custodyFromPhrase(phrase: string) {
 
 async function findFid(address: string): Promise<number> {
   // Accounts from before the Nov 2026 split are known by their Optimism registration…
-  const reg = await fetch(`${NODE}/v1/onChainIdRegistryEventByAddress?address=${address}`).then((r) => (r.ok ? r.json() : null));
+  const reg = await fetch(`${node()}/v1/onChainIdRegistryEventByAddress?address=${address}`).then((r) => (r.ok ? r.json() : null));
   if (reg?.fid) return Number(reg.fid);
   // …and native Hypersnap accounts by their custody address.
-  const res = await fetch(`${NODE}/v1/nativeAccount?custody=${address}`);
+  const res = await fetch(`${node()}/v1/nativeAccount?custody=${address}`);
   if (res.ok) return Number((await res.json()).fid);
   return 0;
 }
 
 async function submit(bytes: Uint8Array) {
-  const res = await fetch(`${NODE}/v1/submitMessage`, {
+  const res = await fetch(`${node()}/v1/submitMessage`, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: bytes,
@@ -219,7 +219,7 @@ async function addKey(custody: { privateKey: Uint8Array; address: string }, onSt
 
   onStep('Waiting for Hypersnap to confirm…');
   for (let i = 0; i < 15; i++) {
-    const r = await fetch(`${NODE}/v1/signer?fid=${fid}&signer=${toHex(pub)}`);
+    const r = await fetch(`${node()}/v1/signer?fid=${fid}&signer=${toHex(pub)}`);
     if (r.ok) return { fid, signer: signerHex, expiresAt: Date.now() + KEY_TTL * 1000 };
     await new Promise((res) => setTimeout(res, 2000));
   }

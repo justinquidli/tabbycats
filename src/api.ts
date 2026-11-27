@@ -30,6 +30,33 @@ export const NETWORKS: Record<Network, { label: string; node: string }> = {
   hypersnap: { label: 'Hypersnap', node: chosenHypersnapNode() },
 };
 
+// If the chosen Hypersnap node doesn't answer, quietly use the first one that does.
+// Hypersnap reads wait for this check, so feeds never sit on a dead node.
+const hypersnapReady: Promise<void> = (async () => {
+  const preferred = NETWORKS.hypersnap.node;
+  const alive = async (url: string) => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      return (await fetch(`${url}/v1/info`, { signal: ctrl.signal })).ok;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  if (await alive(preferred)) return;
+  for (const url of HYPERSNAP_NODES.filter((u) => u !== preferred)) {
+    if (await alive(url)) {
+      NETWORKS.hypersnap.node = url;
+      return;
+    }
+  }
+})();
+
+/** Resolves once the Hypersnap node in use has been checked (and swapped if it was down). */
+export const hypersnapNodeReady = () => hypersnapReady;
+
 const FC_EPOCH = 1609459200; // Farcaster timestamps count seconds from 2021-01-01
 
 export interface CastId {
@@ -60,6 +87,7 @@ export interface Profile {
 }
 
 async function get<T>(network: Network, path: string): Promise<T> {
+  if (network === 'hypersnap') await hypersnapReady;
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
