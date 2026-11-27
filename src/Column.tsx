@@ -350,14 +350,27 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
             </div>
           )}
           <div className="settings-actions">
-            <button
-              className="btn-danger"
-              onClick={() => {
-                if (confirm(`Remove the "${col.name}" feed?`)) onRemove();
-              }}
-            >
-              Remove
-            </button>
+            {justAdded && col.kind === 'list' && !(col.members ?? []).length ? (
+              // A custom feed that was just created and is still empty: one tap backs out of it
+              <button
+                className="btn-quiet"
+                onClick={() => {
+                  section.current?.previousElementSibling?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+                  onRemove();
+                }}
+              >
+                Cancel
+              </button>
+            ) : (
+              <button
+                className="btn-danger"
+                onClick={() => {
+                  if (confirm(`Remove the "${col.name}" feed?`)) onRemove();
+                }}
+              >
+                Remove
+              </button>
+            )}
             <button className="btn" onClick={() => setEditing(false)}>
               Done
             </button>
