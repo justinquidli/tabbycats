@@ -5,7 +5,7 @@ type Status = 'checking' | 'live' | 'down';
 
 const ACCOUNTS: Record<Network, { label: string; href: string }> = {
   farcaster: { label: '@tabbycats', href: 'https://farcaster.xyz/tabbycats' },
-  hypersnap: { label: 'TabbyCats', href: 'https://quilcast.com/u/4294967372' },
+  hypersnap: { label: '@tabbycats', href: 'https://quilcast.com/u/4294967372' },
 };
 
 function useNodeStatus(network: Network) {

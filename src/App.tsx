@@ -60,10 +60,15 @@ function Welcome({ onStart }: { onStart: () => void }) {
             Start prowling
           </button>
         </div>
+        <p className="hint">Add, remove and rearrange feeds any time. No herding required.</p>
         <p className="hint">
-          News and updates:{' '}
+          News and updates: @tabbycats on{' '}
           <a href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
-            @tabbycats
+            Farcaster
+          </a>{' '}
+          &amp;{' '}
+          <a href="https://quilcast.com/u/4294967372" target="_blank" rel="noreferrer noopener">
+            Hypersnap
           </a>
         </p>
       </div>
