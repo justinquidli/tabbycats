@@ -68,22 +68,40 @@ function limited<T>(fn: () => Promise<T>): Promise<T> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toCast(network: Network, msg: any): Cast | null {
+  // Everything here comes from strangers via a node: check every field's shape before using it.
   const data = msg?.data;
   if (data?.type !== 'MESSAGE_TYPE_CAST_ADD' || !data.castAddBody) return null;
   const body = data.castAddBody;
+  const isHash = (h: unknown): h is string => typeof h === 'string' && /^0x[0-9a-f]{40}$/i.test(h);
+  const isId = (n: unknown): n is number => Number.isSafeInteger(n) && (n as number) > 0;
+  const castId = (c: any): CastId | undefined => (c && isId(c.fid) && isHash(c.hash) ? { fid: c.fid, hash: c.hash } : undefined);
+  if (!isHash(msg.hash) || !isId(data.fid) || !Number.isSafeInteger(data.timestamp)) return null;
+  const ts = (FC_EPOCH + data.timestamp) * 1000;
+  if (!Number.isFinite(new Date(ts).getTime())) return null;
+  const text = typeof body.text === 'string' ? body.text : '';
+  let mentions: number[] = Array.isArray(body.mentions) ? body.mentions : [];
+  let mentionsPositions: number[] = Array.isArray(body.mentionsPositions) ? body.mentionsPositions : [];
+  const textBytes = new TextEncoder().encode(text).length;
+  const positionsOk =
+    mentions.length === mentionsPositions.length &&
+    mentions.every(isId) &&
+    mentionsPositions.every((p, i) => Number.isSafeInteger(p) && p >= 0 && p <= textBytes && (i === 0 || p >= mentionsPositions[i - 1]));
+  if (!positionsOk) mentions = mentionsPositions = []; // malformed mentions: show the plain text
+  const embeds = (Array.isArray(body.embeds) ? body.embeds : [])
+    .map((e: any) => (e?.castId ? (castId(e.castId) ? { castId: castId(e.castId) } : null) : typeof e?.url === 'string' ? { url: e.url } : null))
+    .filter(Boolean) as Cast['embeds'];
   return {
     network,
     hash: msg.hash,
-    signer: msg.signer,
+    signer: typeof msg.signer === 'string' ? msg.signer : undefined,
     fid: data.fid,
-    ts: (FC_EPOCH + data.timestamp) * 1000,
-    text: body.text ?? '',
-    mentions: body.mentions ?? [],
-    mentionsPositions: body.mentionsPositions ?? [],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    embeds: (body.embeds ?? []).map((e: any) => (e.castId ? { castId: e.castId } : { url: e.url })),
-    parent: body.parentCastId ?? undefined,
-    parentUrl: body.parentUrl ?? undefined,
+    ts,
+    text,
+    mentions,
+    mentionsPositions,
+    embeds,
+    parent: castId(body.parentCastId),
+    parentUrl: typeof body.parentUrl === 'string' ? body.parentUrl : undefined,
   };
 }
 

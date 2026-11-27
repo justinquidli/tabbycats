@@ -31,11 +31,14 @@ const ORDER: Record<Network, string[]> = {
   hypersnap: ['quilcast', 'renegade', 'farcaster', 'firefly', 'terminus', 'opencaster', 'homiehouse', 'linkcast', 'vibeshift', 'genycaster', 'forkcaster', 'neynar'],
 };
 
-export function openLinks(network: Network, cast: CastId, username?: string) {
+export function openLinks(network: Network, cast: CastId, rawUsername?: string) {
+  // Hashes and usernames come from the network: only use well-formed ones in links
+  if (!/^0x[0-9a-f]{40}$/i.test(cast.hash)) return [];
+  const username = rawUsername && /^[a-z0-9][a-z0-9._-]{0,40}$/i.test(rawUsername) ? rawUsername : undefined;
   return ORDER[network]
     .map((id) => ({ label: ALL[id].label, href: ALL[id].url(cast, username) }))
     .filter((l): l is { label: string; href: string } => !!l.href);
 }
 
 // The link "Copy link" copies and quoted casts open: the network's home client.
-export const primaryLink = (network: Network, cast: CastId, username?: string) => openLinks(network, cast, username)[0].href;
+export const primaryLink = (network: Network, cast: CastId, username?: string) => openLinks(network, cast, username)[0]?.href ?? '#';

@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { type Cast, type Network, getCastsByFid, getFollowing, getProfile, resolveHandle } from './api';
-import { CastCard } from './CastCard';
+import { CastBoundary, CastCard } from './CastCard';
 import type { Column } from './store';
 import { useWrite } from './account';
 import { FIRST_NATIVE_FID, SOURCES, type Source, mergeByHash, useCombinedFirehose, useSourceFilter } from './sources';
@@ -383,7 +383,9 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
           <div className="empty">{loading || checking ? 'Pouncing on the latest casts…' : source === 'hypersnap' ? 'Quiet as a cat nap. Nobody has posted from a Hypersnap app in this window yet.' : 'Quiet as a cat nap. No casts yet.'}</div>
         )}
         {shown.slice(0, limit).map((c) => (
-          <CastCard key={c.hash} cast={c} onMute={onMute} />
+          <CastBoundary key={c.hash}>
+            <CastCard cast={c} onMute={onMute} />
+          </CastBoundary>
         ))}
         {shown.length > limit && (
           <button className="btn-quiet more" onClick={() => setLimit(limit + PAGE)}>

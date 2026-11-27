@@ -72,12 +72,10 @@ export function SharedFeedModal({
   onClose: () => void;
 }) {
   const [preview, setPreview] = useState<Profile[]>([]);
-  const [curator, setCurator] = useState<Profile>();
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     Promise.all(feed.fids.slice(0, 5).map((fid) => getProfile(profileNet(feed, fid), fid))).then(setPreview);
-    if (feed.by) getProfile(feed.by.network, feed.by.fid).then(setCurator);
   }, [feed]);
 
   const add = async () => {
@@ -100,7 +98,6 @@ export function SharedFeedModal({
         <p className="shared-meta">
           <span className={`net net-${feed.source}`}>{SOURCES[feed.source].tag}</span>
           {feed.fids.length} {feed.fids.length === 1 ? 'account' : 'accounts'}
-          {curator && <> · shared by @{curator.username ?? curator.fid}</>}
         </p>
         {names.length > 0 && (
           <p className="hint">

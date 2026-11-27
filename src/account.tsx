@@ -196,8 +196,7 @@ export function HypersnapSignIn({ onClose, onDone }: { onClose: () => void; onDo
     setBusy('Checking your phrase…');
     try {
       const { unlockHypersnap } = await import('./hypersnap');
-      const key = await unlockHypersnap(phrase, setBusy);
-      setPhrase(''); // forget it straight away
+      const key = await unlockHypersnap(phrase, setBusy, () => setPhrase('')); // forgotten as soon as it's been used
       const p = await getProfile('hypersnap', key.fid);
       onDone({ ...key, username: p.username ?? p.display });
     } catch (e) {
@@ -231,7 +230,7 @@ export function HypersnapSignIn({ onClose, onDone }: { onClose: () => void; onDo
       {error && <p className="error">{error}</p>}
       <ul className="unlock-promises">
         <li>🔒 Your phrase stays in this browser. It's used once to create a posting key, then forgotten. It's never saved or sent anywhere.</li>
-        <li>⏳ The posting key can cast, reply, like and follow for 90 days. It can't move your account or funds.</li>
+        <li>⏳ The posting key can only cast, reply, like and recast, for 90 days. It can't follow, edit your profile, or move your account or funds.</li>
         <li>🐾 TabbyCats is open source, so you can check exactly what it does with your phrase.</li>
       </ul>
     </Modal>

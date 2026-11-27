@@ -13,7 +13,7 @@ import { NETWORKS } from './api';
 const NODE = NETWORKS.hypersnap.node;
 const FARCASTER_EPOCH = 1609459200;
 const KEY_TTL = 7776000; // 90 days, same as Quilcast
-const SCOPES = [1, 2, 3, 4, 5, 6, 11]; // casts, reactions, follows, profile
+const SCOPES = [1, 2, 3, 4]; // only what TabbyCats does: casts and reactions (add/remove)
 
 export interface HypersnapKey {
   fid: number;
@@ -106,7 +106,13 @@ export function isValidPhrase(phrase: string) {
 
 function custodyFromPhrase(phrase: string) {
   const seed = mnemonicToSeedSync(normalizePhrase(phrase));
-  const key = HDKey.fromMasterSeed(seed).derive("m/44'/60'/0'/0/0").privateKey!;
+  const master = HDKey.fromMasterSeed(seed);
+  const child = master.derive("m/44'/60'/0'/0/0");
+  const key = Uint8Array.from(child.privateKey!);
+  // wipe everything derived along the way; only the one key we need is kept, and it's wiped after signing
+  child.wipePrivateData();
+  master.wipePrivateData();
+  seed.fill(0);
   const pub = secp256k1.getPublicKey(key, false).slice(1);
   const address = toHex(keccak_256(pub).slice(12));
   return { privateKey: key, address };
@@ -141,13 +147,27 @@ async function submit(bytes: Uint8Array) {
   }
 }
 
-export async function unlockHypersnap(phrase: string, onStep: (msg: string) => void): Promise<HypersnapKey> {
+// `onPhraseUsed` fires as soon as the phrase has been turned into a key, so the page can
+// forget it right away (before the network round-trips).
+export async function unlockHypersnap(
+  phrase: string,
+  onStep: (msg: string) => void,
+  onPhraseUsed: () => void = () => {},
+): Promise<HypersnapKey> {
   if (!isValidPhrase(phrase)) throw new Error("That doesn't look like a valid recovery phrase. Check the words and their order.");
   onStep('Finding your account…');
   const custody = custodyFromPhrase(phrase);
+  onPhraseUsed();
+  try {
+    return await addKey(custody, onStep);
+  } finally {
+    custody.privateKey.fill(0); // whatever happens, the wallet key doesn't outlive this call
+  }
+}
+
+async function addKey(custody: { privateKey: Uint8Array; address: string }, onStep: (msg: string) => void): Promise<HypersnapKey> {
   const fid = await findFid(custody.address);
   if (!fid) {
-    custody.privateKey.fill(0);
     throw new Error('No Hypersnap account uses this phrase. Accounts created on Farcaster after Nov 12, 2026 need a separate Hypersnap account.');
   }
 
@@ -183,7 +203,7 @@ export async function unlockHypersnap(phrase: string, onStep: (msg: string) => v
     ],
     { fid, key: toHex(pub), keyType: 1, scopes: SCOPES, ttl: KEY_TTL, nonce, deadline },
   );
-  custody.privateKey.fill(0); // done with the wallet key
+  custody.privateKey.fill(0); // done with the wallet key (also wiped by the caller, in case of errors)
 
   const metadata = cat(word(32), word(fid), word(BigInt(custody.address)), word(128), word(deadline), word(65), requestSig, new Uint8Array(31));
   const body = proto([1, pub], [2, 1], [3, custodySig], [4, deadline], [5, nonce], [6, metadata], [7, 1], [9, SCOPES], [10, KEY_TTL]);

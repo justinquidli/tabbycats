@@ -8,6 +8,13 @@
     "run_worker_first": true,
     "not_found_handling": "single-page-application"
   },
+  "workers_dev": false,
+  "preview_urls": false,
+  // per-visitor limits: 10 sign-in starts and 60 posts/likes a minute
+  "ratelimits": [
+    { "name": "SIGNIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "SUBMIT_LIMIT", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } }
+  ],
   "routes": [
     { "pattern": "tabbycats.party", "custom_domain": true },
     { "pattern": "www.tabbycats.party", "custom_domain": true },

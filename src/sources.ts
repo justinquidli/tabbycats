@@ -80,7 +80,7 @@ function lookup(fid: number, signer: string) {
   pending.add(k);
   slot(async () => {
     try {
-      const r = await fetch(`${NETWORKS.farcaster.node}/v1/signer?fid=${fid}&signer=${signer}`);
+      const r = await fetch(`${NETWORKS.farcaster.node}/v1/signer?fid=${fid}&signer=${encodeURIComponent(signer)}`);
       const source = r.ok ? (await r.json()).signer?.source : undefined;
       if (source) {
         origins.set(k, source === 'SIGNER_SOURCE_OFFCHAIN' ? 'hypersnap' : 'farcaster');

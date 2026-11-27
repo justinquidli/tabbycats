@@ -201,7 +201,14 @@ export default function App() {
                 title={`Sign out of ${NETWORKS[n].label}`}
                 aria-label={`Sign out of ${NETWORKS[n].label}`}
                 onClick={() => {
-                  if (confirm(`Sign out of ${NETWORKS[n].label} on this device? Your board stays put.`)) setAccount(n, null);
+                  if (
+                    confirm(
+                      n === 'farcaster'
+                        ? 'Sign out of Farcaster on this device? Your board stays put.\n\nThis forgets the posting key here. To revoke it everywhere, remove TabbyCats in the Farcaster app under Settings → Connected apps.'
+                        : 'Sign out of Hypersnap on this device? Your board stays put.\n\nThis forgets the posting key here. It stops working on its own after 90 days.',
+                    )
+                  )
+                    setAccount(n, null);
                 }}
               >
                 ⎋

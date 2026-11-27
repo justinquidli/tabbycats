@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { Component, type ReactNode, memo, useEffect, useMemo, useState } from 'react';
 import { type Cast, type Network, type Profile, getProfile, peekProfile } from './api';
 import { openLinks, primaryLink } from './clients';
 import { useWrite } from './account';
@@ -226,3 +226,14 @@ export const CastCard = memo(function CastCard({
     </article>
   );
 });
+
+// One malformed cast should never take the whole board down: it just disappears.
+export class CastBoundary extends Component<{ children: ReactNode }, { broken: boolean }> {
+  state = { broken: false };
+  static getDerivedStateFromError() {
+    return { broken: true };
+  }
+  render() {
+    return this.state.broken ? null : this.props.children;
+  }
+}
