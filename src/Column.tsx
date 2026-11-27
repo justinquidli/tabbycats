@@ -3,6 +3,7 @@ import { type Cast, type Network, NETWORKS, getCastsByFid, getFollowing, getProf
 import { CastCard } from './CastCard';
 import { useFirehose } from './firehose';
 import type { Column } from './store';
+import { useWrite } from './account';
 
 const MAX_HISTORY_FIDS = 300;
 const PAGE = 50;
@@ -180,7 +181,14 @@ interface Props {
 
 export function ColumnView({ network, col, index, count, openInId, startEditing, onChange, onRemove, onMove, muted, onMute }: Props) {
   const fh = useFirehose(network);
-  const fids = useColumnFids(network, col);
+  const { account } = useWrite();
+  // A Following column with no handle shows the signed-in user's follows.
+  const autoFollow = col.kind === 'following' && !col.handle && account; // same FID on Hypersnap, which shares Farcaster's history
+  const effective = useMemo(
+    () => (autoFollow ? { ...col, handle: String(account.fid) } : col),
+    [col, autoFollow, account?.fid],
+  );
+  const fids = useColumnFids(network, effective);
   const history = useHistory(network, col.kind === 'all' ? undefined : fids.fids);
   const [editing, setEditing] = useState(startEditing);
   const [frozen, setFrozen] = useState<Cast[] | null>(null);
@@ -207,7 +215,7 @@ export function ColumnView({ network, col, index, count, openInId, startEditing,
   const loading = fids.loading || history.loading || (col.kind === 'all' && fh.status === 'loading');
 
   let notice: ReactNode = null;
-  if (col.kind === 'following' && !col.handle) {
+  if (col.kind === 'following' && !effective.handle) {
     notice = (
       <div className="empty">
         <p>Whose follows should this column show?</p>

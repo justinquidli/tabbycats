@@ -89,7 +89,10 @@ a:focus-visible {
 }
 
 .logo {
-  font-size: 28px;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  display: block;
 }
 
 .wordmark {
@@ -654,7 +657,11 @@ time {
 }
 
 .welcome-logo {
-  font-size: 56px;
+  width: 88px;
+  height: 88px;
+  border-radius: 22px;
+  display: block;
+  margin: 0 auto 8px;
 }
 
 .welcome-card h1 {

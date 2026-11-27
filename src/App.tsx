@@ -46,7 +46,7 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
   return (
     <div className="welcome">
       <div className="welcome-card">
-        <div className="welcome-logo">🐈</div>
+        <img className="welcome-logo" src="/pfp.png" alt="TabbyCats" />
         <h1>Welcome to TabbyCats</h1>
         <p>Your feeds, side by side. Which network do you read?</p>
         <div className="welcome-actions">
@@ -126,7 +126,7 @@ export default function App() {
     <div className="app">
       <header className="topbar">
         <div className="brand">
-          <span className="logo">🐈</span>
+          <img className="logo" src="/pfp.png" alt="" />
           <span className="wordmark">TabbyCats</span>
         </div>
         <div className="prefs">
