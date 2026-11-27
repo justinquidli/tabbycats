@@ -45,7 +45,7 @@ export function presetColumn(source: Source, kind: ColumnKind): Column {
   if (kind === 'all') {
     if (source === 'farcaster') return { id: newId(), source, kind, name: 'Farcaster', emoji: '⛩️' };
     if (source === 'hypersnap') return { id: newId(), source, kind, name: 'Hypersnap', emoji: '🫰' };
-    return { id: newId(), source, kind, name: 'All', emoji: '🌊' };
+    return { id: newId(), source, kind, name: 'Straight from the Tap', emoji: '🌊' };
   }
   if (kind === 'following') return { id: newId(), source, kind, name: 'Following', emoji: '👥' };
   return { id: newId(), source, kind, name: 'Custom feed', emoji: '📋', members: [] };
@@ -66,6 +66,7 @@ function initial(): AppState {
       const icons: Record<string, [string, string]> = { farcaster: ['🟣', '⛩️'], hypersnap: ['🟠', '🫰'] };
       const renamed: Record<string, [string, string]> = { farcaster: ['Farcaster only', 'Farcaster'], hypersnap: ['Hypersnap only', 'Hypersnap'] };
       const columns = (saved.columns as Column[]).map((c) => {
+        if (c.kind === 'all' && c.source === 'combined' && c.name === 'All') return { ...c, name: 'Straight from the Tap' };
         if (c.kind !== 'all' || !icons[c.source]) return c;
         const emoji = c.emoji === icons[c.source][0] ? icons[c.source][1] : c.emoji;
         const name = c.name === renamed[c.source][0] ? renamed[c.source][1] : c.name; // feeds now show where posts were written

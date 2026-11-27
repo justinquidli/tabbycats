@@ -31,7 +31,7 @@ function AddColumn({ source, onSource, onAdd }: { source: Source; onSource: (s: 
       <SourcePicker value={source} onChange={onSource} />
       <button onClick={() => onAdd('all')}>
         <span>🌊</span>
-        <b>All</b>
+        <b>Straight from the Tap</b>
         <small>Every new cast {what}, the moment it lands</small>
       </button>
       <button onClick={() => onAdd('following')}>
