@@ -44,7 +44,7 @@ export const newId = () =>
 export function presetColumn(network: Network, kind: ColumnKind): Column {
   if (kind === 'all') return { id: newId(), network, kind, name: 'All', emoji: '🌊' };
   if (kind === 'following') return { id: newId(), network, kind, name: 'Following', emoji: '👥' };
-  return { id: newId(), network, kind, name: 'New list', emoji: '📋', members: [] };
+  return { id: newId(), network, kind, name: 'Custom feed', emoji: '📋', members: [] };
 }
 
 export function starterColumns(networks: Network[]): Column[] {

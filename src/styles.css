@@ -160,7 +160,11 @@ a:focus-visible {
 }
 
 .column {
+  /* fixed width: wide images or links must never stretch a feed */
   flex: 0 0 var(--col-w);
+  width: var(--col-w);
+  min-width: 0;
+  max-width: var(--col-w);
   display: flex;
   flex-direction: column;
   background: var(--peach);

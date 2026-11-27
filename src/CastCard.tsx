@@ -199,7 +199,7 @@ export const CastCard = memo(function CastCard({
             title="Hide this account's casts everywhere on this device"
             onClick={() => {
               const who = p?.username ? `@${p.username}` : `fid ${cast.fid}`;
-              if (confirm(`Mute ${who}? Their casts will be hidden in every column.`)) onMute(cast.fid, p?.username);
+              if (confirm(`Mute ${who}? Their casts will be hidden in every feed.`)) onMute(cast.fid, p?.username);
             }}
           >
             Mute

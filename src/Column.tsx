@@ -96,7 +96,7 @@ function EmojiField({ value, onChange }: { value: string; onChange: (v: string) 
     <div className="field">
       <label>Icon</label>
       <div className="emoji-row">
-        <input className="emoji-input" value={value} maxLength={8} onChange={(e) => onChange(e.target.value)} aria-label="Column icon" />
+        <input className="emoji-input" value={value} maxLength={8} onChange={(e) => onChange(e.target.value)} aria-label="Feed icon" />
         <span className="hint">Type any emoji, or pick one:</span>
       </div>
       <div className="emoji-grid">
@@ -147,7 +147,7 @@ function MemberEditor({ network, col, onChange }: { network: Network; col: Colum
   };
   return (
     <div className="field">
-      <label>Accounts in this column</label>
+      <label>Accounts in this feed</label>
       <HandleForm label={busy ? 'Adding…' : 'Add'} onSubmit={add} key={members.length} />
       {error && <div className="error">{error}</div>}
       <div className="chips">
@@ -224,14 +224,14 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
   if (col.kind === 'following' && !effective.handle) {
     notice = (
       <div className="empty">
-        <p>Whose follows should this column keep an eye on?</p>
+        <p>Whose follows should this feed keep an eye on?</p>
         <HandleForm label="Show" onSubmit={(h) => onChange({ handle: h })} />
       </div>
     );
   } else if (col.kind === 'list' && !(col.members ?? []).length && !editing) {
     notice = (
       <div className="empty">
-        <p>An empty basket. Add accounts to fill this column.</p>
+        <p>An empty basket. Add accounts to fill this feed.</p>
         <button className="btn" onClick={() => setEditing(true)}>
           Add accounts
         </button>
@@ -251,7 +251,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
         <span className={`net net-${network}`}>{NETWORKS[network].label}</span>
         {col.kind === 'all' && fh.status === 'live' && <span className="live-dot" title="Live" />}
         <div className="col-tools">
-          <button title="Edit column" aria-label="Edit column" className={editing ? 'on' : ''} onClick={() => setEditing(!editing)}>
+          <button title="Edit feed" aria-label="Edit feed" className={editing ? 'on' : ''} onClick={() => setEditing(!editing)}>
             ⚙
           </button>
         </div>
@@ -261,7 +261,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
         <div className="col-settings">
           <div className="field">
             <label>Name</label>
-            <input value={col.name} onChange={(e) => onChange({ name: e.target.value })} aria-label="Column name" />
+            <input value={col.name} onChange={(e) => onChange({ name: e.target.value })} aria-label="Feed name" />
           </div>
           <EmojiField value={col.emoji} onChange={(emoji) => onChange({ emoji })} />
           {col.kind === 'following' && (
@@ -285,7 +285,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
             <button
               className="btn-danger"
               onClick={() => {
-                if (confirm(`Remove the "${col.name}" column?`)) onRemove();
+                if (confirm(`Remove the "${col.name}" feed?`)) onRemove();
               }}
             >
               Remove

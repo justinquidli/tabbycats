@@ -23,7 +23,7 @@ function NetworkPicker({ value, onChange }: { value: Network; onChange: (n: Netw
 function AddColumn({ network, onNetwork, onAdd }: { network: Network; onNetwork: (n: Network) => void; onAdd: (kind: ColumnKind) => void }) {
   return (
     <section className="column add-column">
-      <h2>Add a column</h2>
+      <h2>Create a new feed</h2>
       <NetworkPicker value={network} onChange={onNetwork} />
       <button onClick={() => onAdd('all')}>
         <span>🌊</span>
@@ -37,7 +37,7 @@ function AddColumn({ network, onNetwork, onAdd }: { network: Network; onNetwork:
       </button>
       <button onClick={() => onAdd('list')}>
         <span>📋</span>
-        <b>New list</b>
+        <b>Custom</b>
         <small>Hand-pick the accounts yourself</small>
       </button>
     </section>
@@ -62,7 +62,7 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
             Both
           </button>
         </div>
-        <p className="hint">You can add or remove columns from either network any time. No herding required.</p>
+        <p className="hint">You can add or remove feeds from either network any time. No herding required.</p>
         <p className="hint">
           News and updates:{' '}
           <a href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
