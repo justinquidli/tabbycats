@@ -1228,3 +1228,34 @@ button.brand {
 .col-tools button:disabled:hover {
   background: transparent;
 }
+
+/* One move arrow on each edge of a feed header */
+.col-head {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+
+.col-move {
+  border: 0;
+  background: transparent;
+  color: var(--dark-orange);
+  font-size: 22px;
+  line-height: 1;
+  width: 26px;
+  height: 30px;
+  border-radius: 8px;
+  flex: none;
+}
+
+.col-move:hover:not(:disabled) {
+  background: var(--light-orange);
+}
+
+.col-move:disabled {
+  opacity: 0;
+  cursor: default;
+}
+
+.col-tools {
+  margin-left: auto;
+}

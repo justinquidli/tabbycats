@@ -274,6 +274,9 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
   return (
     <section className="column" ref={section}>
       <header className="col-head">
+        <button className="col-move" title="Move left" aria-label="Move feed left" disabled={index === 0} onClick={() => onMove(-1)}>
+          ‹
+        </button>
         <span className="col-emoji">{col.emoji || '📋'}</span>
         <h2 title={col.name}>{col.name || 'Untitled'}</h2>
         <span className={`net net-${source}`} title={SOURCES[source].about}>
@@ -281,16 +284,13 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
         </span>
         {col.kind === 'all' && fh.status === 'live' && <span className="live-dot" title="Live" />}
         <div className="col-tools">
-          <button title="Move left" aria-label="Move feed left" disabled={index === 0} onClick={() => onMove(-1)}>
-            ‹
-          </button>
-          <button title="Move right" aria-label="Move feed right" disabled={index === count - 1} onClick={() => onMove(1)}>
-            ›
-          </button>
           <button title="Edit feed" aria-label="Edit feed" className={editing ? 'on' : ''} onClick={() => setEditing(!editing)}>
             ⚙
           </button>
         </div>
+        <button className="col-move" title="Move right" aria-label="Move feed right" disabled={index === count - 1} onClick={() => onMove(1)}>
+          ›
+        </button>
       </header>
 
       {editing && (
