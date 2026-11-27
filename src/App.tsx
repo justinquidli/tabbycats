@@ -54,7 +54,7 @@ function Welcome({ onStart }: { onStart: () => void }) {
       <div className="welcome-card">
         <img className="welcome-logo" src="/pfp-2.png" alt="TabbyCats" />
         <h1>Welcome to TabbyCats</h1>
-        <p>Curate multiple feeds on Farcaster &amp; Hypersnap in a single client, meow! 😺</p>
+        <p className="welcome-lead">Curate multiple feeds on Farcaster &amp; Hypersnap in a single client, meow!</p>
         <div className="welcome-actions">
           <button className="btn" onClick={onStart}>
             Start prowling

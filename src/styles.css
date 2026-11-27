@@ -1276,3 +1276,7 @@ button.brand {
     white-space: nowrap;
   }
 }
+
+.welcome-card .welcome-lead {
+  text-align: left;
+}
