@@ -125,14 +125,14 @@ if (!fid) {
 // 2. Posting key (expires after 90 days, like Quilcast's; re-run this script to renew)
 const keyFile = `${DIR}/hypersnap-signer.json`;
 let keyInfo = fs.existsSync(keyFile) ? JSON.parse(fs.readFileSync(keyFile, 'utf8')) : null;
-if (!keyInfo || keyInfo.fid !== fid || keyInfo.expiresAt < Date.now() + 7 * 864e5) {
+if (process.argv.includes('--new-key') || !keyInfo || keyInfo.fid !== fid || keyInfo.expiresAt < Date.now() + 7 * 864e5) {
   const priv = randomBytes(32);
   const pub = ed25519.getPublicKey(priv);
   const KEY_DOMAIN = { name: 'Farcaster KeyAdd', version: '1', chainId: 1 };
   const deadline = now() + 3600;
   const ttl = 7776000;
   const nonce = Math.floor(Date.now() / 1000);
-  const scopes = [1, 2, 3, 4, 5, 6, 11]; // casts, reactions, follows, profile
+  const scopes = [1, 2, 3, 4, 5, 6, 11, 12]; // casts, reactions, follows, profile, username proofs
   const requestSig = await custody.signTypedData({
     domain: KEY_DOMAIN,
     primaryType: 'SignedKeyRequest',
