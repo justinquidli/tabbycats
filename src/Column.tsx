@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { type Cast, type Network, NETWORKS, getCastsByFid, getFollowing, getProfile, resolveHandle } from './api';
 import { CastCard } from './CastCard';
 import { useFirehose } from './firehose';
@@ -190,7 +190,9 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
   const fids = useColumnFids(network, effective);
   const history = useHistory(network, col.kind === 'all' ? undefined : fids.fids);
   const [editing, setEditing] = useState(startEditing);
-  const [frozen, setFrozen] = useState<Cast[] | null>(null);
+  // New casts wait behind a "new casts" button instead of pushing the column around.
+  const [cutoff, setCutoff] = useState(() => Date.now());
+  const body = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState(PAGE);
 
   const live = useMemo(() => {
@@ -209,8 +211,13 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
     );
   }, [network, col.kind, col.hideReplies, fh.casts, fh.removed, fids.fids, history.casts, muted]);
 
-  const shown = frozen ?? live;
-  const newWhilePaused = frozen ? live.filter((c) => c.ts > (frozen[0]?.ts ?? 0)).length : 0;
+  const settled = live.filter((c) => c.ts <= cutoff);
+  const shown = settled.length ? settled : live; // nothing to hold back yet: just show what's there
+  const waiting = live.length - shown.length;
+  const catchUp = () => {
+    setCutoff(Math.max(Date.now(), live[0]?.ts ?? 0));
+    body.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
   const loading = fids.loading || history.loading || (col.kind === 'all' && fh.status === 'loading');
 
   let notice: ReactNode = null;
@@ -242,11 +249,8 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
         <span className="col-emoji">{col.emoji || '📋'}</span>
         <h2 title={col.name}>{col.name || 'Untitled'}</h2>
         <span className={`net net-${network}`}>{NETWORKS[network].label}</span>
-        {col.kind === 'all' && fh.status === 'live' && !frozen && <span className="live-dot" title="Live" />}
+        {col.kind === 'all' && fh.status === 'live' && <span className="live-dot" title="Live" />}
         <div className="col-tools">
-          <button title={frozen ? 'Wake up (resume)' : 'Nap (pause)'} aria-label={frozen ? 'Resume' : 'Pause'} onClick={() => setFrozen(frozen ? null : live)}>
-            {frozen ? '▶' : '⏸'}
-          </button>
           <button title="Edit column" aria-label="Edit column" className={editing ? 'on' : ''} onClick={() => setEditing(!editing)}>
             ⚙
           </button>
@@ -299,13 +303,13 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
         </div>
       )}
 
-      {frozen && newWhilePaused > 0 && (
-        <button className="new-pill" onClick={() => setFrozen(null)}>
-          {newWhilePaused} new · wake up
+      {waiting > 0 && (
+        <button className="new-pill" onClick={catchUp}>
+          ↑ {waiting} new {waiting === 1 ? 'cast' : 'casts'}
         </button>
       )}
 
-      <div className="col-body">
+      <div className="col-body" ref={body}>
         {notice}
         {!notice && shown.length === 0 && (
           <div className="empty">{loading ? 'Pouncing on the latest casts…' : 'Quiet as a cat nap. No casts yet.'}</div>
