@@ -143,6 +143,9 @@ export async function getFollowing(network: Network, fid: number): Promise<numbe
 const profiles = new Map<string, Profile>();
 const profileRequests = new Map<string, Promise<Profile>>();
 
+/** Every profile loaded so far on this page (used for @mention suggestions). */
+export const loadedProfiles = (): Profile[] => [...profiles.values()];
+
 export function peekProfile(network: Network, fid: number): Profile | undefined {
   return profiles.get(`${network}:${fid}`);
 }

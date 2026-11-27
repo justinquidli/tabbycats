@@ -3,6 +3,7 @@ import QR from 'qrcode';
 import { type Cast, NETWORKS, type Network, getProfile } from './api';
 import { CAST_LIMIT, postCast } from './write';
 import { createKey, deleteKey, importKey } from './vault';
+import { mentionAt, useMentionSuggestions } from './mentions';
 
 export interface Account {
   fid: number;
@@ -286,6 +287,28 @@ export function Composer({
   const bytes = new TextEncoder().encode(text).length;
   const account = accounts[network]!;
 
+  // @mention autocomplete
+  const box = useRef<HTMLTextAreaElement>(null);
+  const [caret, setCaret] = useState(0);
+  const [picked, setPicked] = useState(0);
+  const [dismissed, setDismissed] = useState<number | null>(null);
+  const at = mentionAt(text, caret);
+  const open = at && dismissed !== at.start ? at : null;
+  const suggestions = useMentionSuggestions(open ? open.query : null, network, account.fid);
+  const showList = !!open && suggestions.length > 0;
+  useEffect(() => setPicked(0), [open?.query]);
+  const choose = (username: string) => {
+    if (!open) return;
+    const next = text.slice(0, open.start) + '@' + username + ' ' + text.slice(caret);
+    const pos = open.start + username.length + 2;
+    setText(next);
+    setCaret(pos);
+    requestAnimationFrame(() => {
+      box.current?.focus();
+      box.current?.setSelectionRange(pos, pos);
+    });
+  };
+
   const send = async () => {
     if (busy || !text.trim() || bytes > limit) return;
     setBusy(true);
@@ -304,16 +327,51 @@ export function Composer({
     <Modal label={parent ? 'Reply' : 'New cast'} onClose={onClose} className="composer">
       <h2>{parent ? `Reply to @${parentName ?? parent.fid}` : 'New cast'}</h2>
       {parent && <blockquote className="quote">{parent.text.slice(0, 200)}</blockquote>}
-      <textarea
-        autoFocus
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
-        }}
-        placeholder={parent ? 'Write your reply…' : 'What has your whiskers twitching?'}
-        rows={5}
-      />
+      <div className="composer-box">
+        <textarea
+          ref={box}
+          autoFocus
+          value={text}
+          onChange={(e) => {
+            setText(e.target.value);
+            setCaret(e.target.selectionStart);
+          }}
+          onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+          onKeyDown={(e) => {
+            if (showList) {
+              if (e.key === 'ArrowDown') return e.preventDefault(), setPicked((picked + 1) % suggestions.length);
+              if (e.key === 'ArrowUp') return e.preventDefault(), setPicked((picked - 1 + suggestions.length) % suggestions.length);
+              if (e.key === 'Enter' || e.key === 'Tab') return e.preventDefault(), choose(suggestions[picked].username);
+              if (e.key === 'Escape') return e.stopPropagation(), setDismissed(open!.start);
+            }
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
+          }}
+          placeholder={parent ? 'Write your reply…' : 'What has your whiskers twitching?'}
+          rows={5}
+          aria-autocomplete="list"
+        />
+        {showList && (
+          <ul className="mention-list" role="listbox" aria-label="Mention suggestions">
+            {suggestions.map((s, i) => (
+              <li key={s.username}>
+                <button
+                  role="option"
+                  aria-selected={i === picked}
+                  className={i === picked ? 'on' : ''}
+                  onMouseDown={(e) => {
+                    e.preventDefault(); // keep the cursor in the box
+                    choose(s.username);
+                  }}
+                >
+                  {s.pfp ? <img src={s.pfp} alt="" referrerPolicy="no-referrer" /> : <span className="mention-dot">🐈</span>}
+                  <b>@{s.username}</b>
+                  {s.display && <span>{s.display}</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       <div className="composer-foot">
         {limit - bytes <= 60 && (
           <span className={bytes > limit ? 'error' : 'hint'}>

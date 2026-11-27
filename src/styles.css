@@ -1294,3 +1294,60 @@ button.brand {
 .welcome-card .welcome-actions {
   justify-content: flex-start;
 }
+
+/* @mention suggestions */
+.composer-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.mention-list {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(43, 23, 0, 0.12);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.mention-list button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  padding: 6px 8px;
+  border-radius: 8px;
+  text-align: left;
+  font-size: 14px;
+}
+
+.mention-list button.on,
+.mention-list button:hover {
+  background: var(--peach);
+}
+
+.mention-list img,
+.mention-list .mention-dot {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  background: var(--light-orange);
+}
+
+.mention-list span:not(.mention-dot) {
+  color: var(--dark-orange);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
