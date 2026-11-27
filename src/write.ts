@@ -1,6 +1,6 @@
-// Posting to Farcaster. Loaded on demand so read-only visitors don't download it.
+// Posting to Farcaster and Hypersnap. Both use the same message format.
 import { NETWORKS } from './api';
-import type { CastId } from './api';
+import type { CastId, Network } from './api';
 import { MessageType, ReactionType, buildMessage, castAddBody, publicKey, reactionBody } from './message';
 
 export interface WriteAccount {
@@ -22,8 +22,10 @@ export const newPostingKey = () => bytesToHex(crypto.getRandomValues(new Uint8Ar
 export const publicKeyOf = async (privateKey: string) => bytesToHex(publicKey(hexToBytes(privateKey)));
 export const castBytes = (text: string) => new TextEncoder().encode(text).length;
 
-async function submit(bytes: Uint8Array) {
-  const res = await fetch('/api/submit', {
+async function submit(network: Network, bytes: Uint8Array) {
+  // Farcaster's node blocks browser requests, so it goes through our Worker; Hypersnap's allows them.
+  const url = network === 'farcaster' ? '/api/submit' : `${NETWORKS.hypersnap.node}/v1/submitMessage`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/octet-stream' },
     body: bytes,
@@ -33,16 +35,16 @@ async function submit(bytes: Uint8Array) {
     let detail = text;
     try {
       const j = JSON.parse(text);
-      detail = j.details ?? j.message ?? text;
+      detail = j.details ?? j.error_detail ?? j.message ?? text;
     } catch {
       /* keep raw */
     }
-    throw new Error(`Farcaster rejected it: ${String(detail).slice(0, 140)}`);
+    throw new Error(`${NETWORKS[network].label} rejected it: ${String(detail).slice(0, 140)}`);
   }
 }
 
 // Turn "@name" into real mentions where the name exists; leave the rest as plain text.
-async function extractMentions(text: string) {
+async function extractMentions(network: Network, text: string) {
   const re = /(^|\s)@([a-z0-9][a-z0-9.-]{0,30}[a-z0-9]|[a-z0-9])(?=$|[\s.,!?:;)])/gi;
   const found: { start: number; end: number; name: string }[] = [];
   for (const m of text.matchAll(re)) {
@@ -51,7 +53,7 @@ async function extractMentions(text: string) {
   }
   const fids = await Promise.all(
     found.map((f) =>
-      fetch(`${NETWORKS.farcaster.node}/v1/userNameProofByName?name=${encodeURIComponent(f.name)}`)
+      fetch(`${NETWORKS[network].node}/v1/userNameProofByName?name=${encodeURIComponent(f.name)}`)
         .then((r) => (r.ok ? r.json() : null))
         .then((d) => (d?.fid as number | undefined) ?? null)
         .catch(() => null),
@@ -72,11 +74,11 @@ async function extractMentions(text: string) {
   return { text: out, mentions, mentionsPositions };
 }
 
-export async function postCast(account: WriteAccount, rawText: string, parent?: CastId) {
+export async function postCast(account: WriteAccount, network: Network, rawText: string, parent?: CastId) {
   const text = rawText.trim();
   if (!text) throw new Error('Write something first');
   if (castBytes(text) > CAST_LIMIT) throw new Error('Too long');
-  const body = await extractMentions(text);
+  const body = await extractMentions(network, text);
   const msg = buildMessage(
     MessageType.CAST_ADD,
     account.fid,
@@ -84,11 +86,11 @@ export async function postCast(account: WriteAccount, rawText: string, parent?: 
     castAddBody({ ...body, parentCastId: parent ? { fid: parent.fid, hash: hexToBytes(parent.hash) } : undefined }),
     hexToBytes(account.privateKey),
   );
-  await submit(msg.bytes);
+  await submit(network, msg.bytes);
   return bytesToHex(msg.hash);
 }
 
-export async function react(account: WriteAccount, kind: 'like' | 'recast', target: CastId) {
+export async function react(account: WriteAccount, network: Network, kind: 'like' | 'recast', target: CastId) {
   const msg = buildMessage(
     MessageType.REACTION_ADD,
     account.fid,
@@ -96,5 +98,5 @@ export async function react(account: WriteAccount, kind: 'like' | 'recast', targ
     reactionBody(kind === 'like' ? ReactionType.LIKE : ReactionType.RECAST, { fid: target.fid, hash: hexToBytes(target.hash) }),
     hexToBytes(account.privateKey),
   );
-  await submit(msg.bytes);
+  await submit(network, msg.bytes);
 }

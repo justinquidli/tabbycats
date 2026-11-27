@@ -1081,3 +1081,91 @@ button.brand {
     grid-row: 2;
   }
 }
+
+/* Accounts in the top bar */
+.account-chip {
+  gap: 6px !important;
+}
+
+.account-chip .net {
+  font-size: 9px;
+  padding: 1px 6px;
+}
+
+/* Sign-in chooser */
+.chooser .choice {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 2px;
+  text-align: left;
+  border: 0;
+  background: var(--peach);
+  border-radius: 12px;
+  padding: 12px 14px;
+}
+
+.chooser .choice:hover:not(:disabled) {
+  background: var(--light-orange);
+}
+
+.chooser .choice .net {
+  justify-self: start;
+  margin-bottom: 4px;
+}
+
+.chooser .choice small {
+  color: var(--dark-orange);
+}
+
+/* Hypersnap unlock */
+.unlock {
+  max-width: 480px;
+  align-items: stretch;
+  text-align: left;
+}
+
+.unlock textarea {
+  font: 15px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: #fff;
+  resize: none;
+}
+
+.unlock textarea:focus-visible {
+  outline: 2px solid var(--burnt-orange);
+}
+
+.unlock-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.unlock-promises {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  background: var(--peach);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--dark-orange);
+}
+
+/* Composer network picker */
+.composer-network {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.switch.small button {
+  padding: 3px 10px;
+  font-size: 12px;
+}

@@ -131,7 +131,6 @@ export const CastCard = memo(function CastCard({
   const write = useWrite();
   const [done, setDone] = useState<{ like?: boolean; recast?: boolean }>({});
   const [failed, setFailed] = useState('');
-  const canWrite = cast.network === 'farcaster';
   const doReact = async (kind: 'like' | 'recast') => {
     if (done[kind]) return;
     setFailed('');
@@ -140,7 +139,7 @@ export const CastCard = memo(function CastCard({
       await write.react(kind, cast);
     } catch (e) {
       setDone((d) => ({ ...d, [kind]: false }));
-      if (write.account) setFailed((e as Error).message);
+      if (write.accounts[cast.network]) setFailed((e as Error).message);
     }
   };
 
@@ -173,7 +172,8 @@ export const CastCard = memo(function CastCard({
         {cast.parent && <ReplyTo cast={cast} />}
         <CastText cast={cast} />
         <Embeds cast={cast} />
-        {canWrite && (
+        {/* signed out: these open sign-in for this cast's network */}
+        {(
           <div className="cast-write">
             <button onClick={() => write.compose(cast)} title="Reply">
               💬 Reply

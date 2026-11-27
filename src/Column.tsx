@@ -180,7 +180,9 @@ interface Props {
 
 export function ColumnView({ network, col, index, count, startEditing, onChange, onRemove, onMove, muted, onMute }: Props) {
   const fh = useFirehose(network);
-  const { account } = useWrite();
+  const { accounts } = useWrite();
+  // Pre-split accounts share their number on both networks, so a Farcaster sign-in also works here.
+  const account = accounts[network] ?? accounts.farcaster;
   // A Following column with no handle shows the signed-in user's follows.
   const autoFollow = col.kind === 'following' && !col.handle && account; // same FID on Hypersnap, which shares Farcaster's history
   const effective = useMemo(

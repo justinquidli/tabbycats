@@ -3,7 +3,7 @@ import { type Cast, NETWORKS, type Network, peekProfile } from './api';
 import { react } from './write';
 import { AboutModal } from './About';
 import { useProfile } from './CastCard';
-import { Composer, type FcAccount, SignInModal, WriteContext, loadAccount, saveAccount } from './account';
+import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, loadAccounts, saveAccount } from './account';
 import { ColumnView } from './Column';
 import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
 
@@ -75,8 +75,8 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
   );
 }
 
-function AccountPfp({ fid }: { fid: number }) {
-  const p = useProfile('farcaster', fid);
+function AccountPfp({ network, fid }: { network: Network; fid: number }) {
+  const p = useProfile(network, fid);
   return p?.pfp ? <img className="account-pfp" src={p.pfp} alt="" referrerPolicy="no-referrer" /> : null;
 }
 
@@ -84,9 +84,20 @@ export default function App() {
   const [state, setState] = useAppState();
   const [justAdded, setJustAdded] = useState<string | null>(null);
   const [showMuted, setShowMuted] = useState(false);
-  const [account, setAccount] = useState<FcAccount | null>(loadAccount);
-  const [signingIn, setSigningIn] = useState(false);
+  const [accounts, setAccounts] = useState<Accounts>(loadAccounts);
+  // 'choose' shows the network picker; a network opens that network's sign-in
+  const [signingIn, setSigningIn] = useState<Network | 'choose' | null>(null);
   const [composing, setComposing] = useState<{ parent?: Cast } | null>(null);
+  const hasAccount = Object.keys(accounts).length > 0;
+  const setAccount = (network: Network, a: Account | null) => {
+    saveAccount(network, a);
+    setAccounts((all) => {
+      const next = { ...all };
+      if (a) next[network] = a;
+      else delete next[network];
+      return next;
+    });
+  };
   const [toast, setToast] = useState('');
   const [showAbout, setShowAbout] = useState(false);
   const flash = (msg: string) => {
@@ -95,18 +106,23 @@ export default function App() {
   };
   const writeApi = useMemo(
     () => ({
-      account,
-      signIn: () => setSigningIn(true),
-      compose: (parent?: Cast) => (account ? setComposing({ parent }) : setSigningIn(true)),
+      accounts,
+      signIn: (network?: Network) => setSigningIn(network ?? 'choose'),
+      compose: (parent?: Cast) => {
+        const needed = parent?.network;
+        if (needed ? accounts[needed] : hasAccount) setComposing({ parent });
+        else setSigningIn(needed ?? 'choose');
+      },
       react: async (kind: 'like' | 'recast', cast: Cast) => {
+        const account = accounts[cast.network];
         if (!account) {
-          setSigningIn(true);
+          setSigningIn(cast.network);
           throw new Error('signed out');
         }
-        await react(account, kind, { fid: cast.fid, hash: cast.hash });
+        await react(account, cast.network, kind, { fid: cast.fid, hash: cast.hash });
       },
     }),
-    [account],
+    [accounts, hasAccount],
   );
   const { columns } = state;
   const mutedSet = useMemo(() => new Set(state.muted.map((m) => `${m.network}:${m.fid}`)), [state.muted]);
@@ -144,31 +160,30 @@ export default function App() {
           <span className="wordmark">TabbyCats</span>
         </button>
         <div className="prefs">
-          {account ? (
-            <>
-              <button className="btn small" onClick={() => setComposing({})}>
-                ＋ Cast
+          {hasAccount && (
+            <button className="btn small" onClick={() => setComposing({})}>
+              ＋ Cast
+            </button>
+          )}
+          {ALL_NETWORKS.filter((n) => accounts[n]).map((n) => (
+            <span key={n} className="chip account-chip" title={`Signed in to ${NETWORKS[n].label}`}>
+              <AccountPfp network={n} fid={accounts[n]!.fid} />
+              @{accounts[n]!.username ?? accounts[n]!.fid}
+              <span className={`net net-${n}`}>{NETWORKS[n].label}</span>
+              <button
+                title={`Sign out of ${NETWORKS[n].label}`}
+                aria-label={`Sign out of ${NETWORKS[n].label}`}
+                onClick={() => {
+                  if (confirm(`Sign out of ${NETWORKS[n].label} on this device? Your board stays put.`)) setAccount(n, null);
+                }}
+              >
+                ⎋
               </button>
-              <span className="chip">
-                <AccountPfp fid={account.fid} />
-                @{account.username ?? account.fid}
-                <button
-                  title="Sign out"
-                  aria-label="Sign out"
-                  onClick={() => {
-                    if (confirm('Sign out of Farcaster on this device? Your board stays put.')) {
-                      saveAccount(null);
-                      setAccount(null);
-                    }
-                  }}
-                >
-                  ⎋
-                </button>
-              </span>
-            </>
-          ) : (
-            <button className="btn small" onClick={() => setSigningIn(true)}>
-              Sign in with Farcaster
+            </span>
+          ))}
+          {ALL_NETWORKS.some((n) => !accounts[n]) && (
+            <button className={hasAccount ? 'btn-quiet small' : 'btn small'} onClick={() => setSigningIn('choose')}>
+              {hasAccount ? '+ Sign in' : 'Sign in'}
             </button>
           )}
           <button className="btn-quiet small" onClick={() => setShowMuted(!showMuted)} aria-expanded={showMuted}>
@@ -234,22 +249,35 @@ export default function App() {
         <AddColumn network={state.lastNetwork} onNetwork={(n) => setState((s) => ({ ...s, lastNetwork: n }))} onAdd={add} />
       </main>
 
-      {signingIn && (
-        <SignInModal
-          onClose={() => setSigningIn(false)}
+      {signingIn === 'choose' && (
+        <SignInChooser accounts={accounts} onPick={(n) => setSigningIn(n)} onClose={() => setSigningIn(null)} />
+      )}
+      {signingIn === 'farcaster' && (
+        <FarcasterSignIn
+          onClose={() => setSigningIn(null)}
           onDone={(a) => {
-            saveAccount(a);
-            setAccount(a);
-            setSigningIn(false);
+            setAccount('farcaster', a);
+            setSigningIn(null);
             flash(`Welcome in, @${a.username ?? a.fid} 🐾`);
           }}
         />
       )}
-      {composing && account && (
+      {signingIn === 'hypersnap' && (
+        <HypersnapSignIn
+          onClose={() => setSigningIn(null)}
+          onDone={(a) => {
+            setAccount('hypersnap', a);
+            setSigningIn(null);
+            flash(`Hypersnap unlocked, @${a.username ?? a.fid} 🐾`);
+          }}
+        />
+      )}
+      {composing && hasAccount && (
         <Composer
-          account={account}
+          accounts={accounts}
           parent={composing.parent}
-          parentName={composing.parent ? peekProfile('farcaster', composing.parent.fid)?.username : undefined}
+          parentName={composing.parent ? peekProfile(composing.parent.network, composing.parent.fid)?.username : undefined}
+          defaultNetwork={state.lastNetwork}
           onClose={() => setComposing(null)}
           onSent={() => flash(composing.parent ? 'Reply sent 🐾' : 'Cast sent 🐾')}
         />
