@@ -1,11 +1,18 @@
 // Posting to Farcaster and Hypersnap. Both use the same message format.
 import { NETWORKS } from './api';
 import type { CastId, Network } from './api';
-import { MessageType, ReactionType, buildMessage, castAddBody, publicKey, reactionBody } from './message';
+import { MessageType, ReactionType, buildMessage, castAddBody, reactionBody } from './message';
+import { getSigner } from './vault';
 
 export interface WriteAccount {
   fid: number;
-  privateKey: string; // hex ed25519 posting key, approved by the user in the Farcaster app
+  signer: string; // public key of the posting key, which lives in this browser's vault
+}
+
+async function signerFor(account: WriteAccount) {
+  const s = await getSigner(account.signer);
+  if (!s) throw new Error("This browser doesn't hold your posting key anymore. Sign out and sign in again.");
+  return s;
 }
 
 export const CAST_LIMIT = 320; // bytes, for a standard cast
@@ -18,8 +25,6 @@ const hexToBytes = (hex: string) => {
 };
 const bytesToHex = (b: Uint8Array) => '0x' + [...b].map((x) => x.toString(16).padStart(2, '0')).join('');
 
-export const newPostingKey = () => bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
-export const publicKeyOf = async (privateKey: string) => bytesToHex(publicKey(hexToBytes(privateKey)));
 export const castBytes = (text: string) => new TextEncoder().encode(text).length;
 
 async function submit(network: Network, bytes: Uint8Array) {
@@ -79,24 +84,24 @@ export async function postCast(account: WriteAccount, network: Network, rawText:
   if (!text) throw new Error('Write something first');
   if (castBytes(text) > CAST_LIMIT) throw new Error('Too long');
   const body = await extractMentions(network, text);
-  const msg = buildMessage(
+  const msg = await buildMessage(
     MessageType.CAST_ADD,
     account.fid,
     5,
     castAddBody({ ...body, parentCastId: parent ? { fid: parent.fid, hash: hexToBytes(parent.hash) } : undefined }),
-    hexToBytes(account.privateKey),
+    await signerFor(account),
   );
   await submit(network, msg.bytes);
   return bytesToHex(msg.hash);
 }
 
 export async function react(account: WriteAccount, network: Network, kind: 'like' | 'recast', target: CastId) {
-  const msg = buildMessage(
+  const msg = await buildMessage(
     MessageType.REACTION_ADD,
     account.fid,
     7,
     reactionBody(kind === 'like' ? ReactionType.LIKE : ReactionType.RECAST, { fid: target.fid, hash: hexToBytes(target.hash) }),
-    hexToBytes(account.privateKey),
+    await signerFor(account),
   );
   await submit(network, msg.bytes);
 }

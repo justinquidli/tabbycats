@@ -1,10 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type Cast, NETWORKS, type Network, peekProfile } from './api';
 import { react } from './write';
 import { AboutModal } from './About';
 import { type SharedFeed, SharedFeedModal, clearSharedFeedFromUrl, readSharedFeed } from './share';
 import { useProfile } from './CastCard';
-import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, loadAccounts, saveAccount } from './account';
+import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, forgetKey, loadAccounts, migrateKeys, saveAccount } from './account';
 import { ColumnView } from './Column';
 import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
 import { ALL_SOURCES, SOURCES, type Source } from './sources';
@@ -92,7 +92,12 @@ export default function App() {
   const [signingIn, setSigningIn] = useState<Network | 'choose' | null>(null);
   const [composing, setComposing] = useState<{ parent?: Cast; network?: Network } | null>(null);
   const hasAccount = Object.keys(accounts).length > 0;
+  useEffect(() => {
+    migrateKeys(accounts).then((next) => next && setAccounts(next));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const setAccount = (network: Network, a: Account | null) => {
+    if (!a) forgetKey(accounts[network]); // signing out deletes the key from this browser
     saveAccount(network, a);
     setAccounts((all) => {
       const next = { ...all };

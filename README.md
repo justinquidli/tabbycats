@@ -10,7 +10,7 @@ A simple, column-based reader for **Farcaster** and **Hypersnap**. Line up the f
 - Mute accounts across every column
 - Open any cast in another client: Farcaster, Quilcast, Firefly and more (list adapted from [Forkcaster](https://github.com/artlu99/forkcaster_xyz), MIT)
 
-Everything is saved in your browser. There is no backend and no account; TabbyCats reads straight from public nodes:
+Everything is saved in your browser. Posting keys are created by the browser as non-exportable keys and kept in IndexedDB (like Quilcast): TabbyCats can sign with them, but no script can read them out. There is no backend and no account; TabbyCats reads straight from public nodes:
 
 | Network | Node |
 |---|---|

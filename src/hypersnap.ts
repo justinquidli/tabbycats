@@ -4,11 +4,11 @@
 import { HDKey } from '@scure/bip32';
 import { mnemonicToSeedSync, validateMnemonic } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english';
-import { ed25519 } from '@noble/curves/ed25519';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { blake3 } from '@noble/hashes/blake3';
 import { keccak_256 } from '@noble/hashes/sha3';
 import { NETWORKS } from './api';
+import { createKey, deleteKey, getSigner } from './vault';
 
 const NODE = NETWORKS.hypersnap.node;
 const FARCASTER_EPOCH = 1609459200;
@@ -17,7 +17,7 @@ const SCOPES = [1, 2, 3, 4]; // only what TabbyCats does: casts and reactions (a
 
 export interface HypersnapKey {
   fid: number;
-  privateKey: string;
+  signer: string; // public key; the private half stays in this browser's vault
   expiresAt: number; // ms
 }
 
@@ -172,8 +172,9 @@ async function addKey(custody: { privateKey: Uint8Array; address: string }, onSt
   }
 
   onStep('Creating your posting key…');
-  const priv = ed25519.utils.randomPrivateKey();
-  const pub = ed25519.getPublicKey(priv);
+  const signerHex = await createKey(); // made non-exportable by the browser, kept in its vault
+  const signer = (await getSigner(signerHex))!;
+  const pub = signer.pub;
   const domain = { name: 'Farcaster KeyAdd', version: '1', chainId: 1 };
   const deadline = farcasterNow() + 3600;
   const nonce = Math.floor(Date.now() / 1000);
@@ -209,12 +210,17 @@ async function addKey(custody: { privateKey: Uint8Array; address: string }, onSt
   const body = proto([1, pub], [2, 1], [3, custodySig], [4, deadline], [5, nonce], [6, metadata], [7, 1], [9, SCOPES], [10, KEY_TTL]);
   const data = proto([1, 16], [2, fid], [3, farcasterNow()], [4, 1], [19, body]);
   const hash = blake3(data, { dkLen: 20 });
-  await submit(proto([1, data], [2, hash], [3, 1], [4, ed25519.sign(hash, priv)], [5, 1], [6, pub], [7, data]));
+  try {
+    await submit(proto([1, data], [2, hash], [3, 1], [4, await signer.sign(hash)], [5, 1], [6, pub], [7, data]));
+  } catch (e) {
+    await deleteKey(signerHex); // never approved: don't keep it
+    throw e;
+  }
 
   onStep('Waiting for Hypersnap to confirm…');
   for (let i = 0; i < 15; i++) {
     const r = await fetch(`${NODE}/v1/signer?fid=${fid}&signer=${toHex(pub)}`);
-    if (r.ok) return { fid, privateKey: toHex(priv), expiresAt: Date.now() + KEY_TTL * 1000 };
+    if (r.ok) return { fid, signer: signerHex, expiresAt: Date.now() + KEY_TTL * 1000 };
     await new Promise((res) => setTimeout(res, 2000));
   }
   throw new Error("Your key was sent but hasn't shown up yet. Try again in a minute.");

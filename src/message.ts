@@ -3,6 +3,7 @@
 // library is ~1 MB gzipped, this is a few KB. Checked byte-for-byte against @farcaster/core.
 import { ed25519 } from '@noble/curves/ed25519';
 import { blake3 } from '@noble/hashes/blake3';
+import type { Signer } from './vault';
 
 const FARCASTER_EPOCH = 1609459200;
 const MAINNET = 1;
@@ -75,12 +76,12 @@ export function reactionBody(type: number, target: CastIdBytes) {
 }
 
 // MessageData body field numbers: cast_add_body = 5, reaction_body = 7
-export function buildMessage(type: number, fid: number, bodyField: 5 | 7, body: Writer, privateKey: Uint8Array, timestamp?: number) {
+export async function buildMessage(type: number, fid: number, bodyField: 5 | 7, body: Writer, key: Signer, timestamp?: number) {
   const ts = timestamp ?? Math.floor(Date.now() / 1000) - FARCASTER_EPOCH;
   const data = new Writer().uint(1, type).uint(2, fid).uint(3, ts).uint(4, MAINNET).message(bodyField, body).finish();
   const hash = blake3(data, { dkLen: 20 });
-  const signature = ed25519.sign(hash, privateKey);
-  const signer = ed25519.getPublicKey(privateKey);
+  const signature = await key.sign(hash);
+  const signer = key.pub;
   // Message: data=1, hash=2, hash_scheme=3 (BLAKE3=1), signature=4, signature_scheme=5 (ED25519=1), signer=6, data_bytes=7
   const msg = new Writer();
   msg.tag(1, 2).varint(data.length);

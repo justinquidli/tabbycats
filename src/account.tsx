@@ -1,11 +1,12 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import QR from 'qrcode';
 import { type Cast, NETWORKS, type Network, getProfile } from './api';
-import { CAST_LIMIT, newPostingKey, postCast, publicKeyOf } from './write';
+import { CAST_LIMIT, postCast } from './write';
+import { createKey, deleteKey, importKey } from './vault';
 
 export interface Account {
   fid: number;
-  privateKey: string; // posting key for TabbyCats; it can post but can't move the account
+  signer: string; // public key of the posting key; the key itself is non-exportable, in the browser's vault
   username?: string;
   expiresAt?: number; // Hypersnap keys expire (ms)
 }
@@ -22,12 +23,37 @@ export function loadAccounts(): Accounts {
   for (const n of Object.keys(KEYS) as Network[]) {
     try {
       const a = JSON.parse(localStorage.getItem(KEYS[n]) ?? 'null');
-      if (a?.fid && a?.privateKey && !(a.expiresAt && a.expiresAt < Date.now())) out[n] = a;
+      if (a?.fid && (a?.signer || a?.privateKey) && !(a.expiresAt && a.expiresAt < Date.now())) out[n] = a;
     } catch {
       /* ignore */
     }
   }
   return out;
+}
+
+// Older versions kept the raw posting key in localStorage. Move any such key into the vault
+// (non-exportable) and drop the readable copy. Runs once per key; nobody has to sign in again.
+export async function migrateKeys(accounts: Accounts): Promise<Accounts | null> {
+  let changed = false;
+  const next: Accounts = { ...accounts };
+  for (const n of Object.keys(accounts) as Network[]) {
+    const legacy = accounts[n] as (Account & { privateKey?: string }) | undefined;
+    if (!legacy?.privateKey) continue;
+    try {
+      const signer = await importKey(legacy.privateKey);
+      const { privateKey: _drop, ...rest } = legacy; // eslint-disable-line @typescript-eslint/no-unused-vars
+      next[n] = { ...rest, signer };
+      saveAccount(n, next[n]!);
+      changed = true;
+    } catch {
+      /* vault unavailable (e.g. private mode); keep working as before */
+    }
+  }
+  return changed ? next : null;
+}
+
+export function forgetKey(a: Account | undefined) {
+  if (a?.signer) deleteKey(a.signer);
 }
 
 export function saveAccount(network: Network, a: Account | null) {
@@ -110,8 +136,7 @@ export function FarcasterSignIn({ onClose, onDone }: { onClose: () => void; onDo
     let timer: ReturnType<typeof setTimeout>;
     (async () => {
       try {
-        const privateKey = newPostingKey();
-        const key = await publicKeyOf(privateKey);
+        const key = await createKey(); // non-exportable, kept in the browser's vault
         const res = await fetch('/api/signer-request', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -134,7 +159,7 @@ export function FarcasterSignIn({ onClose, onDone }: { onClose: () => void; onDo
             const req = (await r.json())?.result?.signedKeyRequest;
             if (req?.state === 'completed' && req.userFid) {
               const p = await getProfile('farcaster', req.userFid);
-              if (live) done.current({ fid: req.userFid, privateKey, username: p.username });
+              if (live) done.current({ fid: req.userFid, signer: key, username: p.username });
               return;
             }
             if (req?.state === 'approved' && live) setStep({ kind: 'approved' });
