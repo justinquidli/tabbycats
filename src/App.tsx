@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { type Cast, NETWORKS, type Network, peekProfile } from './api';
+import { react } from './write';
 import { Composer, type FcAccount, SignInModal, WriteContext, loadAccount, saveAccount } from './account';
 import { ColumnView } from './Column';
 import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
@@ -94,7 +95,6 @@ export default function App() {
           setSigningIn(true);
           throw new Error('signed out');
         }
-        const { react } = await import('./write');
         await react(account, kind, { fid: cast.fid, hash: cast.hash });
       },
     }),

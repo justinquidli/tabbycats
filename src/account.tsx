@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { Cast } from './api';
 import { getProfile } from './api';
+import QR from 'qrcode';
+import { CAST_LIMIT, newPostingKey, postCast, publicKeyOf } from './write';
 
 export interface FcAccount {
   fid: number;
@@ -61,7 +63,6 @@ export function SignInModal({ onClose, onDone }: { onClose: () => void; onDone: 
     let timer: ReturnType<typeof setTimeout>;
     (async () => {
       try {
-        const [{ newPostingKey, publicKeyOf }, QR] = await Promise.all([import('./write'), import('qrcode')]);
         const privateKey = newPostingKey();
         const key = await publicKeyOf(privateKey);
         const res = await fetch('/api/signer-request', {
@@ -157,19 +158,15 @@ export function Composer({
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [limit, setLimit] = useState(320);
+  const limit = CAST_LIMIT;
   const bytes = new TextEncoder().encode(text).length;
 
-  useEffect(() => {
-    import('./write').then((w) => setLimit(w.CAST_LIMIT));
-  }, []);
 
   const send = async () => {
     if (busy || !text.trim() || bytes > limit) return;
     setBusy(true);
     setError('');
     try {
-      const { postCast } = await import('./write');
       await postCast(account, text, parent ? { fid: parent.fid, hash: parent.hash } : undefined);
       onSent();
       onClose();
