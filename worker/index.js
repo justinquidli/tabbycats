@@ -147,8 +147,51 @@ async function feedPage(request, env, id) {
   return withSecurityHeaders(rewritten);
 }
 
+// ---- Channels: Farcaster's channel list, kept in KV and searched here ----
+// (browsers can't call Farcaster's API directly; a daily refresh keeps it current, and the
+// last saved copy keeps working if Farcaster's API refuses us)
+const CHANNEL_KEY = 'channel-list'; // not 8 alphanumerics, so it can't collide with a feed id
+let channelCache; // { updatedAt, list } per Worker instance
+
+async function channelList(env, ctx) {
+  if (!channelCache) channelCache = JSON.parse((await env.FEEDS.get(CHANNEL_KEY)) ?? '{"updatedAt":0,"list":[]}');
+  if (Date.now() - channelCache.updatedAt > 24 * 3600 * 1000) {
+    channelCache.updatedAt = Date.now(); // one refresh attempt per instance per day
+    ctx.waitUntil(
+      (async () => {
+        const res = await fetch('https://api.farcaster.xyz/v2/all-channels', { headers: { 'user-agent': 'TabbyCats (+https://tabbycats.party)' } });
+        if (!res.ok) return;
+        const list = ((await res.json())?.result?.channels ?? [])
+          .filter((c) => c.url)
+          .map((c) => ({ id: c.id, n: c.name ?? '', u: c.url, i: c.imageUrl ?? '', f: c.followerCount ?? 0 }))
+          .sort((a, b) => b.f - a.f);
+        if (list.length > 1000) {
+          channelCache = { updatedAt: Date.now(), list };
+          await env.FEEDS.put(CHANNEL_KEY, JSON.stringify(channelCache));
+        }
+      })().catch(() => {}),
+    );
+  }
+  return channelCache.list;
+}
+
+async function searchChannels(url, env, ctx) {
+  const q = (url.searchParams.get('q') ?? '').trim().toLowerCase().replace(/^\//, '').slice(0, 40);
+  const list = await channelList(env, ctx);
+  const out = !q
+    ? list.slice(0, 8)
+    : [
+        ...list.filter((c) => c.id === q),
+        ...list.filter((c) => c.id !== q && c.id.startsWith(q)),
+        ...list.filter((c) => !c.id.startsWith(q) && c.n.toLowerCase().includes(q)),
+      ].slice(0, 8);
+  return new Response(JSON.stringify(out.map(({ id, n, u, i }) => ({ id, name: n, url: u, image: i }))), {
+    headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600', 'strict-transport-security': HSTS },
+  });
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     // Always encrypted, always on the main domain (a tampered plain-HTTP page could capture a recovery phrase)
     if (url.protocol === 'http:' || (url.hostname !== CANONICAL && url.hostname.endsWith('.party'))) {
@@ -170,6 +213,7 @@ export default {
       if (env.SHARE_LIMIT && !(await env.SHARE_LIMIT.limit({ key: ip })).success) return json({ error: 'Too many shares. Try again in a minute.' }, 429);
       return createFeed(request, env);
     }
+    if (request.method === 'GET' && url.pathname === '/api/channels') return searchChannels(url, env, ctx);
     const feedApi = url.pathname.match(/^\/api\/feeds\/([A-Za-z0-9]{8})$/);
     if (request.method === 'GET' && feedApi) {
       const raw = await env.FEEDS.get(feedApi[1]);

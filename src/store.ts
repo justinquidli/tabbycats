@@ -2,7 +2,14 @@ import { useEffect, useState } from 'react';
 import type { Network } from './api';
 import type { Source } from './sources';
 
-export type ColumnKind = 'all' | 'following' | 'list';
+export type ColumnKind = 'all' | 'following' | 'list' | 'channel';
+
+export interface Channel {
+  id: string;
+  name: string;
+  url: string; // casts in the channel carry this as their parent URL
+  image?: string;
+}
 
 export interface Member {
   fid: number;
@@ -18,6 +25,7 @@ export interface Column {
   handle?: string; // following: whose follows to show
   members?: Member[]; // list
   description?: string; // custom feeds: shown in share-link previews
+  channel?: Channel; // channel feeds
   hideReplies?: boolean;
 }
 
@@ -49,6 +57,7 @@ export function presetColumn(source: Source, kind: ColumnKind): Column {
     return { id: newId(), source, kind, name: 'Straight from Tap', emoji: '🌊' };
   }
   if (kind === 'following') return { id: newId(), source, kind, name: 'Following', emoji: '👥' };
+  if (kind === 'channel') return { id: newId(), source, kind, name: 'Channel', emoji: '📺' };
   return { id: newId(), source, kind, name: 'Custom feed', emoji: '📋', members: [] };
 }
 

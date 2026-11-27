@@ -6,7 +6,7 @@ import { type SharedFeed, SharedFeedModal, clearSharedFeedFromUrl, fetchSharedFe
 import { useProfile } from './CastCard';
 import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, forgetKey, loadAccounts, migrateKeys, saveAccount } from './account';
 import { ColumnView } from './Column';
-import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
+import { type Channel, type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
 import { ALL_SOURCES, SOURCES, type Source } from './sources';
 
 const ALL_NETWORKS = Object.keys(NETWORKS) as Network[];
@@ -23,7 +23,52 @@ function SourcePicker({ value, onChange }: { value: Source; onChange: (s: Source
   );
 }
 
-function AddColumn({ source, onSource, onAdd }: { source: Source; onSource: (s: Source) => void; onAdd: (kind: ColumnKind) => void }) {
+// Search Farcaster channels (via TabbyCats' Worker) and pick one
+function ChannelPicker({ onPick }: { onPick: (c: Channel) => void }) {
+  const [q, setQ] = useState('');
+  const [results, setResults] = useState<Channel[]>([]);
+  useEffect(() => {
+    let live = true;
+    const t = setTimeout(() => {
+      fetch(`/api/channels?q=${encodeURIComponent(q)}`)
+        .then((r) => (r.ok ? r.json() : []))
+        .then((list: Channel[]) => live && setResults(list))
+        .catch(() => {});
+    }, 200);
+    return () => {
+      live = false;
+      clearTimeout(t);
+    };
+  }, [q]);
+  return (
+    <div className="channel-picker">
+      <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search channels, e.g. memes" aria-label="Search channels" autoCapitalize="off" autoCorrect="off" spellCheck={false} />
+      <ul>
+        {results.map((c) => (
+          <li key={c.id}>
+            <button onClick={() => onPick(c)}>
+              {c.image ? <img src={c.image} alt="" referrerPolicy="no-referrer" /> : <span className="mention-dot">📺</span>}
+              <b>/{c.id}</b>
+              {c.name && c.name.toLowerCase() !== c.id && <span>{c.name}</span>}
+            </button>
+          </li>
+        ))}
+        {!results.length && <li className="hint">No channels found.</li>}
+      </ul>
+    </div>
+  );
+}
+
+function AddColumn({
+  source,
+  onSource,
+  onAdd,
+}: {
+  source: Source;
+  onSource: (s: Source) => void;
+  onAdd: (kind: ColumnKind, channel?: Channel) => void;
+}) {
+  const [pickingChannel, setPickingChannel] = useState(false);
   const what = source === 'combined' ? 'from both networks' : `written in ${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'} apps`;
   return (
     <section className="column add-column">
@@ -44,6 +89,19 @@ function AddColumn({ source, onSource, onAdd }: { source: Source; onSource: (s: 
         <b>Custom</b>
         <small>Hand-pick the accounts yourself</small>
       </button>
+      <button onClick={() => setPickingChannel(!pickingChannel)} aria-expanded={pickingChannel}>
+        <span>📺</span>
+        <b>Channel</b>
+        <small>Everything posted in a channel, like /memes</small>
+      </button>
+      {pickingChannel && (
+        <ChannelPicker
+          onPick={(c) => {
+            setPickingChannel(false);
+            onAdd('channel', c);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -153,8 +211,9 @@ export default function App() {
 
   const setColumns = (fn: (cols: Column[]) => Column[]) => setState((s) => ({ ...s, columns: fn(s.columns) }));
 
-  const add = (kind: ColumnKind) => {
-    const col = presetColumn(state.lastSource, kind);
+  const add = (kind: ColumnKind, channel?: Channel) => {
+    const base = presetColumn(state.lastSource, kind);
+    const col = channel ? { ...base, name: channel.name || `/${channel.id}`, channel } : base;
     setJustAdded(col.id); // scroll to it (and open settings for custom feeds)
     setColumns((cols) => [...cols, col]);
   };

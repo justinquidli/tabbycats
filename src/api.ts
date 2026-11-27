@@ -112,6 +112,14 @@ export async function getCastsByFid(network: Network, fid: number, pageSize: num
   return (d.messages ?? []).map((m) => toCast(network, m)).filter((c): c is Cast => !!c);
 }
 
+// Casts posted in a channel (identified by its parent URL), newest first
+export async function getCastsByChannel(network: Network, url: string, pageSize: number): Promise<Cast[]> {
+  const d = await limited(() =>
+    get<{ messages: unknown[] }>(network, `/v1/castsByParent?url=${encodeURIComponent(url)}&pageSize=${pageSize}&reverse=true`),
+  );
+  return (d.messages ?? []).map((m) => toCast(network, m)).filter((c): c is Cast => !!c);
+}
+
 export async function resolveHandle(network: Network, handle: string): Promise<number> {
   const name = handle.trim().replace(/^@/, '').toLowerCase();
   if (!name) throw new Error('Enter a handle');

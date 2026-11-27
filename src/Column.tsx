@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { type Cast, type Network, getCastsByFid, getFollowing, getProfile, resolveHandle } from './api';
+import { type Cast, type Network, getCastsByChannel, getCastsByFid, getFollowing, getProfile, resolveHandle } from './api';
 import { CastBoundary, CastCard } from './CastCard';
 import type { Column } from './store';
 import { useWrite } from './account';
@@ -103,6 +103,33 @@ function useHistory(source: Source, fids?: number[]) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [source, key]);
+  return { casts, loading };
+}
+
+// Recent casts in a channel, from both networks (some only reach one of them)
+function useChannelHistory(url?: string) {
+  const [casts, setCasts] = useState<Cast[]>([]);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    setCasts([]);
+    if (!url) return;
+    let live = true;
+    setLoading(true);
+    Promise.all(
+      (['farcaster', 'hypersnap'] as Network[]).map((n) =>
+        getCastsByChannel(n, url, 60)
+          .then((casts) => ({ network: n, casts }))
+          .catch(() => ({ network: n, casts: [] as Cast[] })),
+      ),
+    ).then((lists) => {
+      if (!live) return;
+      setCasts(mergeByHash(lists));
+      setLoading(false);
+    });
+    return () => {
+      live = false;
+    };
+  }, [url]);
   return { casts, loading };
 }
 
@@ -274,7 +301,8 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
     [col, autoFollow, account?.fid],
   );
   const fids = useColumnFids(source, effective);
-  const history = useHistory(source, col.kind === 'all' ? undefined : fids.fids);
+  const history = useHistory(source, col.kind === 'all' || col.kind === 'channel' ? undefined : fids.fids);
+  const channelHistory = useChannelHistory(col.kind === 'channel' ? col.channel?.url : undefined);
   // Custom feeds open their settings right away so you can add accounts
   const [editing, setEditing] = useState(justAdded && col.kind === 'list');
   const section = useRef<HTMLElement>(null);
@@ -292,7 +320,13 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
   const merged = useMemo(() => {
     let list: Cast[];
     if (col.kind === 'all') list = fh.casts;
-    else if (!fids.fids) list = [];
+    else if (col.kind === 'channel') {
+      const url = col.channel?.url;
+      list = url ? mergeByHash([
+        { network: 'farcaster', casts: channelHistory.casts },
+        { network: 'farcaster', casts: fh.casts.filter((c) => c.parentUrl === url) },
+      ]) : [];
+    } else if (!fids.fids) list = [];
     else {
       const set = new Set(fids.fids);
       list = mergeByHash([
@@ -307,7 +341,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
         !muted.has(`hypersnap:${c.fid}`) &&
         !(col.hideReplies && c.parent),
     );
-  }, [col.kind, col.hideReplies, fh.casts, fh.removed, fids.fids, history.casts, muted]);
+  }, [col.kind, col.channel?.url, col.hideReplies, fh.casts, fh.removed, fids.fids, history.casts, channelHistory.casts, muted]);
   const { shown: live, checking } = useSourceFilter(merged, source);
 
   const settled = live.filter((c) => c.ts <= cutoff);
@@ -317,7 +351,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
     setCutoff(Math.max(Date.now(), live[0]?.ts ?? 0));
     body.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  const loading = fids.loading || history.loading || (col.kind === 'all' && fh.status === 'loading');
+  const loading = fids.loading || history.loading || channelHistory.loading || (col.kind === 'all' && fh.status === 'loading');
 
   let notice: ReactNode = null;
   if (col.kind === 'following' && !effective.handle) {
@@ -348,7 +382,11 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
         <button className="col-move" title="Move left" aria-label="Move feed left" disabled={index === 0} onClick={() => onMove(-1)}>
           ‹
         </button>
-        <span className="col-emoji">{col.emoji || '📋'}</span>
+        {col.kind === 'channel' && col.channel?.image ? (
+          <img className="col-channel-img" src={col.channel.image} alt="" referrerPolicy="no-referrer" />
+        ) : (
+          <span className="col-emoji">{col.emoji || '📋'}</span>
+        )}
         <h2 title={col.name}>{col.name || 'Untitled'}</h2>
         <span className={`net net-${source}`} title={SOURCES[source].about}>
           {SOURCES[source].tag}
