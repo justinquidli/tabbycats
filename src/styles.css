@@ -1351,3 +1351,46 @@ button.brand {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Composer emoji */
+.emoji-toggle {
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.emoji-toggle:hover,
+.emoji-toggle.on {
+  background: var(--peach);
+}
+
+.emoji-picker {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 2px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+}
+
+.emoji-picker button {
+  border: 0;
+  background: transparent;
+  font-size: 20px;
+  padding: 4px 0;
+  border-radius: 8px;
+}
+
+.emoji-picker button:hover {
+  background: var(--peach);
+}
+
+@media (max-width: 520px) {
+  .emoji-picker {
+    grid-template-columns: repeat(8, 1fr);
+  }
+}

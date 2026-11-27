@@ -263,6 +263,14 @@ export function HypersnapSignIn({ onClose, onDone }: { onClose: () => void; onDo
   );
 }
 
+const COMPOSER_EMOJI = [
+  '😺', '😸', '😹', '😻', '😼', '😽', '🙀', '😿', '😾', '🐈', '🐈‍⬛', '🐾',
+  '😂', '🤣', '😊', '😍', '🥰', '😘', '😎', '🤔', '🫠', '🥲', '😭', '😤',
+  '🙏', '👏', '🙌', '👀', '🫡', '🤝', '💪', '👋', '🫰', '✌️', '👍', '👎',
+  '❤️', '🧡', '💛', '💜', '🔥', '✨', '⭐', '🎉', '💯', '✅', '❌', '⚡',
+  '🚀', '🌊', '⛩️', '🎩', '🪙', '💸', '📈', '📉', '🧠', '🛠️', '☕', '🍿',
+];
+
 export function Composer({
   accounts,
   parent,
@@ -297,6 +305,20 @@ export function Composer({
   const suggestions = useMentionSuggestions(open ? open.query : null, network, account.fid);
   const showList = !!open && suggestions.length > 0;
   useEffect(() => setPicked(0), [open?.query]);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const insert = (snippet: string) => {
+    const el = box.current;
+    const start = el?.selectionStart ?? text.length;
+    const end = el?.selectionEnd ?? text.length;
+    const next = text.slice(0, start) + snippet + text.slice(end);
+    const pos = start + snippet.length;
+    setText(next);
+    setCaret(pos);
+    requestAnimationFrame(() => {
+      box.current?.focus();
+      box.current?.setSelectionRange(pos, pos);
+    });
+  };
   const choose = (username: string) => {
     if (!open) return;
     const next = text.slice(0, open.start) + '@' + username + ' ' + text.slice(caret);
@@ -372,7 +394,32 @@ export function Composer({
           </ul>
         )}
       </div>
+      {emojiOpen && (
+        <div className="emoji-picker" role="listbox" aria-label="Emoji">
+          {COMPOSER_EMOJI.map((e) => (
+            <button
+              key={e}
+              onMouseDown={(ev) => {
+                ev.preventDefault(); // keep the cursor where it was
+                insert(e);
+              }}
+            >
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="composer-foot">
+        <button
+          className={`emoji-toggle ${emojiOpen ? 'on' : ''}`}
+          title="Emoji"
+          aria-label="Emoji"
+          aria-expanded={emojiOpen}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setEmojiOpen(!emojiOpen)}
+        >
+          😺
+        </button>
         {limit - bytes <= 60 && (
           <span className={bytes > limit ? 'error' : 'hint'}>
             {bytes > limit ? `${bytes - limit} over the limit` : `${limit - bytes} characters left`}
