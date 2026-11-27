@@ -915,3 +915,10 @@ time {
   color: var(--dark-orange);
   text-decoration: underline;
 }
+
+/* Only the image itself is clickable, not the empty space beside it */
+.embed-img-link {
+  align-self: flex-start;
+  max-width: 100%;
+  line-height: 0;
+}

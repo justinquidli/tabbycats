@@ -92,7 +92,7 @@ function Embeds({ cast }: { cast: Cast }) {
         if (!e.url) return null;
         if (IMG_RE.test(e.url) || e.url.includes('imagedelivery.net')) {
           return (
-            <a key={i} href={e.url} target="_blank" rel="noreferrer noopener">
+            <a key={i} className="embed-img-link" href={e.url} target="_blank" rel="noreferrer noopener">
               <img className="embed-img" src={e.url} alt="" loading="lazy" referrerPolicy="no-referrer" />
             </a>
           );
