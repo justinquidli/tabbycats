@@ -170,7 +170,6 @@ interface Props {
   col: Column;
   index: number;
   count: number;
-  openInId: string;
   startEditing: boolean;
   onChange: (patch: Partial<Column>) => void;
   onRemove: () => void;
@@ -179,7 +178,7 @@ interface Props {
   onMute: (fid: number, username?: string) => void;
 }
 
-export function ColumnView({ network, col, index, count, openInId, startEditing, onChange, onRemove, onMove, muted, onMute }: Props) {
+export function ColumnView({ network, col, index, count, startEditing, onChange, onRemove, onMove, muted, onMute }: Props) {
   const fh = useFirehose(network);
   const { account } = useWrite();
   // A Following column with no handle shows the signed-in user's follows.
@@ -312,7 +311,7 @@ export function ColumnView({ network, col, index, count, openInId, startEditing,
           <div className="empty">{loading ? 'Pouncing on the latest casts…' : 'Quiet as a cat nap. No casts yet.'}</div>
         )}
         {shown.slice(0, limit).map((c) => (
-          <CastCard key={c.hash} cast={c} openInId={openInId} onMute={onMute} />
+          <CastCard key={c.hash} cast={c} onMute={onMute} />
         ))}
         {shown.length > limit && (
           <button className="btn-quiet more" onClick={() => setLimit(limit + PAGE)}>

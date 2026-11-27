@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { type Cast, type Network, type Profile, getProfile, peekProfile } from './api';
-import { clientFor } from './clients';
+import { openLinks, primaryLink } from './clients';
 import { useWrite } from './account';
 
 export function useProfile(network: Network, fid: number): Profile | undefined {
@@ -77,14 +77,14 @@ function CastText({ cast }: { cast: Cast }) {
 
 const IMG_RE = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i;
 
-function Embeds({ cast, openInId }: { cast: Cast; openInId: string }) {
+function Embeds({ cast }: { cast: Cast }) {
   if (!cast.embeds.length) return null;
   return (
     <div className="embeds">
       {cast.embeds.map((e, i) => {
         if (e.castId) {
           return (
-            <a key={i} className="embed-link" href={clientFor(cast.network, openInId).url(e.castId)} target="_blank" rel="noreferrer noopener">
+            <a key={i} className="embed-link" href={primaryLink(cast.network, e.castId)} target="_blank" rel="noreferrer noopener">
               💬 Quoted cast ↗
             </a>
           );
@@ -120,15 +120,13 @@ function ReplyTo({ cast }: { cast: Cast }) {
 
 export const CastCard = memo(function CastCard({
   cast,
-  openInId,
   onMute,
 }: {
   cast: Cast;
-  openInId: string;
   onMute: (fid: number, username?: string) => void;
 }) {
   const p = useProfile(cast.network, cast.fid);
-  const preferred = clientFor(cast.network, openInId);
+  const [openMenu, setOpenMenu] = useState(false);
   const [copied, setCopied] = useState(false);
   const write = useWrite();
   const [done, setDone] = useState<{ like?: boolean; recast?: boolean }>({});
@@ -148,7 +146,7 @@ export const CastCard = memo(function CastCard({
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(preferred.url(cast, p?.username));
+      await navigator.clipboard.writeText(primaryLink(cast.network, cast, p?.username));
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
     } catch {
@@ -174,7 +172,7 @@ export const CastCard = memo(function CastCard({
         </header>
         {cast.parent && <ReplyTo cast={cast} />}
         <CastText cast={cast} />
-        <Embeds cast={cast} openInId={openInId} />
+        <Embeds cast={cast} />
         {canWrite && (
           <div className="cast-write">
             <button onClick={() => write.compose(cast)} title="Reply">
@@ -190,9 +188,9 @@ export const CastCard = memo(function CastCard({
         )}
         {failed && <div className="error">{failed}</div>}
         <footer className="cast-actions">
-          <a href={preferred.url(cast, p?.username)} target="_blank" rel="noreferrer noopener" title={preferred.hint}>
-            Open ↗
-          </a>
+          <button className="open-toggle" aria-expanded={openMenu} onClick={() => setOpenMenu(!openMenu)}>
+            Open in… {openMenu ? '▴' : '▾'}
+          </button>
           <button className="quiet" onClick={copy}>
             {copied ? 'Copied' : 'Copy link'}
           </button>
@@ -207,6 +205,15 @@ export const CastCard = memo(function CastCard({
             Mute
           </button>
         </footer>
+        {openMenu && (
+          <nav className="open-menu" aria-label="Open this cast in">
+            {openLinks(cast.network, cast, p?.username).map((l) => (
+              <a key={l.label} href={l.href} target="_blank" rel="noreferrer noopener" onClick={() => setOpenMenu(false)}>
+                {l.label}
+              </a>
+            ))}
+          </nav>
+        )}
       </div>
     </article>
   );

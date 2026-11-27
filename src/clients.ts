@@ -1,29 +1,41 @@
 import type { CastId, Network } from './api';
 
 export interface Client {
-  id: string;
   label: string;
-  hint: string;
-  url: (cast: CastId, username?: string) => string;
+  url: (cast: CastId, username?: string) => string | null; // null when the client needs a username we don't have
 }
 
-// One "Open" link per cast. Forkcaster shows the cast and lets people continue in
-// Farcaster, Quilcast and other clients, so it covers everyone with a single link.
-// Formats checked against live pages on 2026-11-27.
-export const CLIENTS: Record<Network, Client> = {
-  farcaster: {
-    id: 'forkcaster',
-    label: 'Forkcaster',
-    hint: 'Open on Forkcaster, then continue in Farcaster, Quilcast or another client',
-    url: (c, u) =>
-      u ? `https://forkcaster.xyz/${u}/${c.hash.slice(0, 10)}` : `https://farcaster.xyz/~/conversations/${c.hash}`,
-  },
-  hypersnap: {
-    id: 'quilcast',
-    label: 'Quilcast',
-    hint: 'Open on Quilcast',
-    url: (c) => `https://quilcast.com/c/${c.hash}`,
-  },
+const bare = (h: string) => h.replace(/^0x/, '');
+const short = (h: string) => h.slice(0, 10);
+
+// "Open this cast in…" list, adapted from Forkcaster (github.com/artlu99/forkcaster_xyz, MIT).
+// Link formats checked against Forkcaster's live page on 2026-11-27.
+const ALL: Record<string, Client> = {
+  farcaster: { label: 'Farcaster', url: (c, u) => (u ? `https://farcaster.xyz/${u}/${short(c.hash)}` : `https://farcaster.xyz/~/conversations/${c.hash}`) },
+  quilcast: { label: 'Quilcast', url: (c) => `https://quilcast.com/c/${bare(c.hash)}` },
+  renegade: { label: 'Renegade', url: (c, u) => (u ? `https://www.hyperenegade.xyz/${u}/${bare(c.hash)}` : null) },
+  firefly: { label: 'Firefly', url: (c) => `https://firefly.social/post/farcaster/${c.hash}` },
+  terminus: { label: 'Terminus', url: (c, u) => (u ? `https://app.onterminus.com/@${u}/${c.hash}` : null) },
+  opencaster: { label: 'Opencaster', url: (c) => `https://opencaster.org/cast/${c.hash}` },
+  homiehouse: { label: 'HomieHouse', url: (c) => `https://homiehouse.app/cast/${c.hash}` },
+  linkcast: { label: 'Linkcast', url: (c) => `https://linkcast.xyz/cast/${bare(c.hash)}` },
+  vibeshift: { label: 'Vibeshift', url: (c) => `https://vibeshift.onchain.cooking/?view=cast&castHash=${c.hash}&castFid=${c.fid}` },
+  genycaster: { label: 'GenyCaster', url: (c) => `https://genycaster.xyz/?cast=${c.hash}` },
+  forkcaster: { label: 'Forkcaster', url: (c, u) => (u ? `https://forkcaster.xyz/${u}/${short(c.hash)}` : null) },
+  neynar: { label: 'Neynar Explorer', url: (c) => `https://explorer.neynar.com/${c.hash}` },
 };
 
-export const clientFor = (network: Network, _id?: string): Client => CLIENTS[network];
+// Hypersnap-first clients lead the list for Hypersnap casts.
+const ORDER: Record<Network, string[]> = {
+  farcaster: ['farcaster', 'firefly', 'quilcast', 'renegade', 'terminus', 'opencaster', 'homiehouse', 'linkcast', 'vibeshift', 'genycaster', 'forkcaster', 'neynar'],
+  hypersnap: ['quilcast', 'renegade', 'farcaster', 'firefly', 'terminus', 'opencaster', 'homiehouse', 'linkcast', 'vibeshift', 'genycaster', 'forkcaster', 'neynar'],
+};
+
+export function openLinks(network: Network, cast: CastId, username?: string) {
+  return ORDER[network]
+    .map((id) => ({ label: ALL[id].label, href: ALL[id].url(cast, username) }))
+    .filter((l): l is { label: string; href: string } => !!l.href);
+}
+
+// The link "Copy link" copies and quoted casts open: the network's home client.
+export const primaryLink = (network: Network, cast: CastId, username?: string) => openLinks(network, cast, username)[0].href;

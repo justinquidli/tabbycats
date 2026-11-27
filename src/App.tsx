@@ -207,7 +207,6 @@ export default function App() {
             col={col}
             index={i}
             count={columns.length}
-            openInId={state.openIn[col.network]}
             startEditing={col.id === justAdded}
             muted={mutedSet}
             onMute={(fid, username) => mute(col.network, fid, username)}

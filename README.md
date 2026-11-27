@@ -8,7 +8,7 @@ A simple, column-based reader for **Farcaster** and **Hypersnap**. Line up the f
 - Mix Farcaster and Hypersnap columns on one board; each column is labelled with its network
 - Rename columns, give them an emoji, reorder, hide replies, pause, remove
 - Mute accounts across every column
-- Open any cast in your preferred client (Farcaster, Forkcaster, Quilcast)
+- Open any cast in another client: Farcaster, Quilcast, Firefly and more (list adapted from [Forkcaster](https://github.com/artlu99/forkcaster_xyz), MIT)
 
 Everything is saved in your browser. There is no backend and no account; TabbyCats reads straight from public nodes:
 
