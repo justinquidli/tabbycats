@@ -4,6 +4,7 @@ import { CastCard } from './CastCard';
 import { useFirehose } from './firehose';
 import type { Column } from './store';
 import { useWrite } from './account';
+import { useHypersnapOnly } from './hsonly';
 
 const MAX_HISTORY_FIDS = 300;
 const PAGE = 50;
@@ -197,7 +198,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
   const body = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState(PAGE);
 
-  const live = useMemo(() => {
+  const baseLive = useMemo(() => {
     let list: Cast[];
     if (col.kind === 'all') list = fh.casts;
     else if (!fids.fids) list = [];
@@ -212,6 +213,13 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
       (c) => !fh.removed.has(c.hash) && !muted.has(`${network}:${c.fid}`) && !(col.hideReplies && c.parent),
     );
   }, [network, col.kind, col.hideReplies, fh.casts, fh.removed, fids.fids, history.casts, muted]);
+
+  // Optional: only Hypersnap-native accounts and ones that stopped posting on Farcaster at the split
+  const hsOnly = network === 'hypersnap' && !!col.hsOnly;
+  const authors = useMemo(() => (hsOnly ? [...new Set(baseLive.slice(0, 400).map((c) => c.fid))] : []), [hsOnly, baseLive]);
+  const isHsOnly = useHypersnapOnly(authors, hsOnly);
+  const live = hsOnly ? baseLive.filter((c) => isHsOnly(c.fid) === true) : baseLive;
+  const checking = hsOnly ? authors.filter((f) => isHsOnly(f) === undefined).length : 0;
 
   const settled = live.filter((c) => c.ts <= cutoff);
   const shown = settled.length ? settled : live; // nothing to hold back yet: just show what's there
@@ -279,6 +287,12 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
             <input type="checkbox" checked={!!col.hideReplies} onChange={(e) => onChange({ hideReplies: e.target.checked })} />
             Hide replies
           </label>
+          {network === 'hypersnap' && (
+            <label className="check" title="Native Hypersnap accounts, plus older accounts that haven't posted on Farcaster since the Nov 12, 2026 split">
+              <input type="checkbox" checked={!!col.hsOnly} onChange={(e) => onChange({ hsOnly: e.target.checked })} />
+              Hypersnap-only accounts
+            </label>
+          )}
           <div className="settings-actions">
             <button className="btn-quiet" disabled={index === 0} onClick={() => onMove(-1)}>
               ← Move
@@ -307,6 +321,8 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
         </div>
       )}
 
+      {checking > 0 && <div className="note">Checking {checking} {checking === 1 ? 'account' : 'accounts'} for Hypersnap-only…</div>}
+
       {waiting > 0 && (
         <button className="new-pill" onClick={catchUp}>
           ↑ {waiting} new {waiting === 1 ? 'cast' : 'casts'}
@@ -316,7 +332,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
       <div className="col-body" ref={body}>
         {notice}
         {!notice && shown.length === 0 && (
-          <div className="empty">{loading ? 'Pouncing on the latest casts…' : 'Quiet as a cat nap. No casts yet.'}</div>
+          <div className="empty">{loading ? 'Pouncing on the latest casts…' : hsOnly ? 'Quiet as a cat nap. Hypersnap-only accounts are still few, and most Hypersnap activity also comes from people posting on Farcaster.' : 'Quiet as a cat nap. No casts yet.'}</div>
         )}
         {shown.slice(0, limit).map((c) => (
           <CastCard key={c.hash} cast={c} onMute={onMute} />

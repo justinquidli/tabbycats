@@ -17,6 +17,7 @@ export interface Column {
   handle?: string; // following: whose follows to show
   members?: Member[]; // list
   hideReplies?: boolean;
+  hsOnly?: boolean; // Hypersnap feeds: only Hypersnap-only accounts
 }
 
 export interface MutedAccount {
