@@ -31,7 +31,7 @@ npm run build   # static site in dist/
 
 ## License
 
-MIT
+MIT. The @tabbycats profile picture uses the 🐈 from Google's [Noto Emoji](https://github.com/googlefonts/noto-emoji) (Apache 2.0).
 
 ## Deploy
 
