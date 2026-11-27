@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import { NETWORKS, type Network } from './api';
-import { CLIENTS } from './clients';
 import { ColumnView } from './Column';
 import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
 
@@ -76,7 +75,6 @@ export default function App() {
     setState((s) =>
       s.muted.some((m) => m.network === network && m.fid === fid) ? s : { ...s, muted: [...s.muted, { network, fid, username }] },
     );
-  const inUse = ALL_NETWORKS.filter((n) => columns.some((c) => c.network === n));
 
   const setColumns = (fn: (cols: Column[]) => Column[]) => setState((s) => ({ ...s, columns: fn(s.columns) }));
 
@@ -106,21 +104,6 @@ export default function App() {
           <span className="wordmark">TabbyCats</span>
         </div>
         <div className="prefs">
-          {inUse.map((n) => (
-            <label key={n}>
-              Open {NETWORKS[n].label} casts in
-              <select
-                value={state.openIn[n]}
-                onChange={(e) => setState((s) => ({ ...s, openIn: { ...s.openIn, [n]: e.target.value } }))}
-              >
-                {CLIENTS[n].map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
           <button className="btn-quiet small" onClick={() => setShowMuted(!showMuted)} aria-expanded={showMuted}>
             Muted ({state.muted.length})
           </button>

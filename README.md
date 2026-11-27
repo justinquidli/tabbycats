@@ -30,3 +30,11 @@ npm run build   # static site in dist/
 ## License
 
 MIT
+
+## Deploy
+
+Hosted on Cloudflare Workers (static assets). `worker/index.js` serves the app and redirects `tabbycat.party` and `www.*` to `tabbycats.party`.
+
+```sh
+npm run build && npx wrangler deploy
+```
