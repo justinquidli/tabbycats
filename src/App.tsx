@@ -37,7 +37,7 @@ function AddColumn({ source, onSource, onAdd }: { source: Source; onSource: (s: 
       <button onClick={() => onAdd('following')}>
         <span>👥</span>
         <b>Following</b>
-        <small>Casts from everyone someone keeps an eye on</small>
+        <small>Casts from the people you follow, or anyone else's follows</small>
       </button>
       <button onClick={() => onAdd('list')}>
         <span>📋</span>
