@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { type Cast, NETWORKS, type Network, peekProfile } from './api';
 import { react } from './write';
 import { AboutModal } from './About';
+import { type SharedFeed, SharedFeedModal, clearSharedFeedFromUrl, readSharedFeed } from './share';
 import { useProfile } from './CastCard';
 import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, loadAccounts, saveAccount } from './account';
 import { ColumnView } from './Column';
@@ -100,6 +101,7 @@ export default function App() {
   };
   const [toast, setToast] = useState('');
   const [showAbout, setShowAbout] = useState(false);
+  const [incoming, setIncoming] = useState<SharedFeed | null>(readSharedFeed);
   const flash = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2500);
@@ -139,6 +141,28 @@ export default function App() {
     setColumns((cols) => [...cols, col]);
   };
 
+  const sharedModal = incoming && (
+        <SharedFeedModal
+          feed={incoming}
+          onClose={() => {
+            clearSharedFeedFromUrl();
+            setIncoming(null);
+          }}
+          onAdd={(members) => {
+            const col = { ...presetColumn(incoming.network, 'list'), name: incoming.name, emoji: incoming.emoji, members };
+            // First visit straight from a share link: start them with the basics plus this feed
+            setState((s) =>
+              s.onboarded
+                ? { ...s, columns: [...s.columns, col] }
+                : { ...s, onboarded: true, lastNetwork: incoming.network, columns: [...starterColumns([incoming.network]), col] },
+            );
+            clearSharedFeedFromUrl();
+            setIncoming(null);
+            flash(`Added "${incoming.name}" 🐾`);
+          }}
+        />
+      );
+
   if (!state.onboarded) {
     return (
       <div className="app">
@@ -147,6 +171,8 @@ export default function App() {
             setState((s) => ({ ...s, onboarded: true, lastNetwork: networks[0], columns: starterColumns(networks) }))
           }
         />
+        {sharedModal}
+        {toast && <div className="toast">{toast}</div>}
       </div>
     );
   }
@@ -283,6 +309,7 @@ export default function App() {
         />
       )}
       {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {sharedModal}
       {toast && <div className="toast">{toast}</div>}
     </div>
     </WriteContext.Provider>

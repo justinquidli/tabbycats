@@ -5,6 +5,7 @@ import { useFirehose } from './firehose';
 import type { Column } from './store';
 import { useWrite } from './account';
 import { isHypersnapNative } from './hsonly';
+import { shareLink } from './share';
 
 const MAX_HISTORY_FIDS = 300;
 const PAGE = 50;
@@ -197,6 +198,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
   const [cutoff, setCutoff] = useState(() => Date.now());
   const body = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState(PAGE);
+  const [shared, setShared] = useState(false);
 
   const baseLive = useMemo(() => {
     let list: Cast[];
@@ -289,6 +291,33 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
               <input type="checkbox" checked={!!col.hsOnly} onChange={(e) => onChange({ hsOnly: e.target.checked })} />
               Native Hypersnap accounts only
             </label>
+          )}
+          {col.kind === 'list' && (col.members ?? []).length > 0 && (
+            <div className="field">
+              <label>Share this feed</label>
+              <div className="share-row">
+                <button
+                  className="btn-quiet"
+                  onClick={async () => {
+                    const by = accounts[network] ? { network, fid: accounts[network]!.fid } : undefined;
+                    const url = shareLink(col, by);
+                    try {
+                      if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ title: col.name, url });
+                      else {
+                        await navigator.clipboard.writeText(url);
+                        setShared(true);
+                        setTimeout(() => setShared(false), 2000);
+                      }
+                    } catch {
+                      /* share sheet dismissed or clipboard blocked */
+                    }
+                  }}
+                >
+                  {shared ? 'Link copied ✓' : '🔗 Copy share link'}
+                </button>
+                <span className="hint">Anyone with the link can add a copy of this feed.</span>
+              </div>
+            </div>
           )}
           <div className="settings-actions">
             <button className="btn-quiet" disabled={index === 0} onClick={() => onMove(-1)}>
