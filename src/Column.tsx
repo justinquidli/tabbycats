@@ -173,7 +173,7 @@ function HandleForm({
   const query = v.trim().replace(/^@/, '');
   // Same suggestions as the composer: people you follow, people in your feeds, exact names
   const suggestions = useMentionSuggestions(focused && query ? query : null, network, me?.fid);
-  const showList = focused && suggestions.length > 0 && !suggestions.some((s) => s.username === query);
+  const showList = focused && suggestions.length > 0; // an exact match just shows up first
   useEffect(() => setPicked(0), [query]);
   const submit = (h: string) => {
     onSubmit(h.trim().replace(/^@/, ''));
