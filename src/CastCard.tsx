@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from 'react';
 import { type Cast, type Network, type Profile, getProfile, peekProfile } from './api';
-import { CLIENTS, clientFor } from './clients';
+import { clientFor } from './clients';
 import { useWrite } from './account';
 
 export function useProfile(network: Network, fid: number): Profile | undefined {
@@ -129,7 +129,6 @@ export const CastCard = memo(function CastCard({
 }) {
   const p = useProfile(cast.network, cast.fid);
   const preferred = clientFor(cast.network, openInId);
-  const others = CLIENTS[cast.network].filter((c) => c.id !== preferred.id);
   const [copied, setCopied] = useState(false);
   const write = useWrite();
   const [done, setDone] = useState<{ like?: boolean; recast?: boolean }>({});
@@ -191,14 +190,9 @@ export const CastCard = memo(function CastCard({
         )}
         {failed && <div className="error">{failed}</div>}
         <footer className="cast-actions">
-          <a href={preferred.url(cast, p?.username)} target="_blank" rel="noreferrer noopener">
-            Open in {preferred.label} ↗
+          <a href={preferred.url(cast, p?.username)} target="_blank" rel="noreferrer noopener" title={preferred.hint}>
+            Open ↗
           </a>
-          {others.map((c) => (
-            <a key={c.id} className="quiet" href={c.url(cast, p?.username)} target="_blank" rel="noreferrer noopener">
-              {c.label}
-            </a>
-          ))}
           <button className="quiet" onClick={copy}>
             {copied ? 'Copied' : 'Copy link'}
           </button>
@@ -207,7 +201,7 @@ export const CastCard = memo(function CastCard({
             title="Hide this account's casts everywhere on this device"
             onClick={() => {
               const who = p?.username ? `@${p.username}` : `fid ${cast.fid}`;
-              if (confirm(`Shoo ${who}? Their casts will be hidden in every column.`)) onMute(cast.fid, p?.username);
+              if (confirm(`Mute ${who}? Their casts will be hidden in every column.`)) onMute(cast.fid, p?.username);
             }}
           >
             Mute

@@ -177,7 +177,7 @@ export default function App() {
       {showMuted && (
         <div className="muted-panel">
           {state.muted.length === 0 ? (
-            <span className="hint">Nobody's been shooed yet. Use "Mute" on any cast to hide that account everywhere.</span>
+            <span className="hint">No muted accounts. Use "Mute" on any cast to hide that account everywhere.</span>
           ) : (
             <div className="chips">
               {state.muted.map((m) => (
