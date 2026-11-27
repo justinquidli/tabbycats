@@ -1027,6 +1027,22 @@ button.brand {
   white-space: nowrap;
 }
 
+.node-side {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-spare {
+  background: transparent;
+  border: 1px dashed var(--light-orange);
+}
+
+.node-use {
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
 .node-status {
   display: inline-flex;
   align-items: center;

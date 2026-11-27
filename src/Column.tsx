@@ -373,7 +373,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
   } else if (fids.error) {
     notice = <div className="empty error">{fids.error}</div>;
   } else if (col.kind === 'all' && fh.status === 'error') {
-    notice = <div className="empty error">Couldn't reach the network nodes. Circling back…</div>;
+    notice = <div className="empty error">Couldn't reach the network nodes. Circling back… If Hypersnap is down, switch nodes in About.</div>;
   }
 
   return (

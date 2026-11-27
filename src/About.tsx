@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NETWORKS, type Network } from './api';
+import { HYPERSNAP_NODES, NETWORKS, type Network, switchHypersnapNode } from './api';
 
 type Status = 'checking' | 'live' | 'down';
 
@@ -8,13 +8,13 @@ const ACCOUNTS: Record<Network, { label: string; href: string }> = {
   hypersnap: { label: '@tabbycats', href: 'https://quilcast.com/u/4294967372' },
 };
 
-function useNodeStatus(network: Network) {
+function useNodeStatus(url: string) {
   const [status, setStatus] = useState<Status>('checking');
   useEffect(() => {
     let live = true;
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 8000);
-    fetch(`${NETWORKS[network].node}/v1/info`, { signal: ctrl.signal })
+    fetch(`${url}/v1/info`, { signal: ctrl.signal })
       .then((r) => live && setStatus(r.ok ? 'live' : 'down'))
       .catch(() => live && setStatus('down'))
       .finally(() => clearTimeout(timer));
@@ -22,20 +22,27 @@ function useNodeStatus(network: Network) {
       live = false;
       ctrl.abort();
     };
-  }, [network]);
+  }, [url]);
   return status;
 }
 
-function NodeRow({ network }: { network: Network }) {
-  const status = useNodeStatus(network);
-  const url = NETWORKS[network].node;
+function NodeRow({ network, url }: { network: Network; url: string }) {
+  const status = useNodeStatus(url);
+  const inUse = NETWORKS[network].node === url;
   return (
-    <li className="node-row">
+    <li className={`node-row${inUse ? '' : ' node-spare'}`}>
       <span className={`net net-${network}`}>{NETWORKS[network].label}</span>
       <code title={url}>{url.replace(/^https:\/\//, '')}</code>
-      <span className={`node-status ${status}`}>
-        <span className="node-dot" aria-hidden="true" />
-        {status === 'checking' ? 'Checking…' : status === 'live' ? 'Live' : "Can't reach"}
+      <span className="node-side">
+        <span className={`node-status ${status}`}>
+          <span className="node-dot" aria-hidden="true" />
+          {status === 'checking' ? 'Checking…' : status === 'live' ? 'Live' : "Can't reach"}
+        </span>
+        {!inUse && (
+          <button className="btn-quiet node-use" onClick={() => switchHypersnapNode(url)}>
+            Use this
+          </button>
+        )}
       </span>
     </li>
   );
@@ -60,10 +67,11 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
 
         <section className="about-section">
           <h3>Where your feeds come from</h3>
-          <p className="hint">TabbyCats reads straight from these public nodes. No middleman, no algorithm.</p>
+          <p className="hint">TabbyCats reads straight from these public nodes. No middleman, no algorithm. If a Hypersnap node is down, switch to another.</p>
           <ul className="node-list">
-            {(Object.keys(NETWORKS) as Network[]).map((n) => (
-              <NodeRow key={n} network={n} />
+            <NodeRow network="farcaster" url={NETWORKS.farcaster.node} />
+            {[NETWORKS.hypersnap.node, ...HYPERSNAP_NODES.filter((u) => u !== NETWORKS.hypersnap.node)].map((u) => (
+              <NodeRow key={u} network="hypersnap" url={u} />
             ))}
           </ul>
         </section>

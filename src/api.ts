@@ -1,8 +1,33 @@
 export type Network = 'farcaster' | 'hypersnap';
 
+// Public Hypersnap nodes; the one in use can be switched in About (saved in this browser).
+export const HYPERSNAP_NODES = ['https://haatz.quilibrium.com', 'https://hypersnap.rainonmeproductions.com'];
+const NODE_KEY = 'tabbycats:hypersnap-node';
+
+function chosenHypersnapNode(): string {
+  try {
+    const saved = localStorage.getItem(NODE_KEY);
+    if (saved && HYPERSNAP_NODES.includes(saved)) return saved;
+  } catch {
+    /* storage unavailable */
+  }
+  return HYPERSNAP_NODES[0];
+}
+
+/** Switch Hypersnap nodes; reloads so every feed refetches from the new one. */
+export function switchHypersnapNode(url: string) {
+  if (!HYPERSNAP_NODES.includes(url)) return;
+  try {
+    localStorage.setItem(NODE_KEY, url);
+  } catch {
+    /* storage unavailable */
+  }
+  location.reload();
+}
+
 export const NETWORKS: Record<Network, { label: string; node: string }> = {
   farcaster: { label: 'Farcaster', node: 'https://snap.farcaster.xyz:3381' },
-  hypersnap: { label: 'Hypersnap', node: 'https://haatz.quilibrium.com' },
+  hypersnap: { label: 'Hypersnap', node: chosenHypersnapNode() },
 };
 
 const FC_EPOCH = 1609459200; // Farcaster timestamps count seconds from 2021-01-01

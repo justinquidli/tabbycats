@@ -15,7 +15,7 @@ Everything is saved in your browser. Posting keys are created by the browser as 
 | Network | Node |
 |---|---|
 | Farcaster | `https://snap.farcaster.xyz:3381` |
-| Hypersnap | `https://haatz.quilibrium.com` |
+| Hypersnap | `https://haatz.quilibrium.com` or `https://hypersnap.rainonmeproductions.com` (switch in About) |
 
 **Posting (Farcaster):** sign in with Farcaster by scanning a QR code and approving TabbyCats in the Farcaster app. TabbyCats then holds a posting key in your browser that can cast, reply, like and recast, but can't move your account. Remove it any time in Farcaster's settings under Connected apps. 
 

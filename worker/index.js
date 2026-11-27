@@ -73,7 +73,7 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' https: data:",
-  "connect-src 'self' https://snap.farcaster.xyz:3381 https://haatz.quilibrium.com https://api.farcaster.xyz",
+  "connect-src 'self' https://snap.farcaster.xyz:3381 https://haatz.quilibrium.com https://hypersnap.rainonmeproductions.com https://api.farcaster.xyz",
   "font-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",
