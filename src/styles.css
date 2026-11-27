@@ -1198,3 +1198,18 @@ button.brand {
   gap: 8px;
   margin-top: 4px;
 }
+
+/* Feed source tags */
+.net-combined {
+  background: var(--ink);
+  color: #fff;
+}
+
+.source-switch {
+  align-self: flex-start;
+  flex-wrap: wrap;
+}
+
+.add-column .source-switch {
+  margin-bottom: 4px;
+}

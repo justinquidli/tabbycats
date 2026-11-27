@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Network } from './api';
+import type { Source } from './sources';
 
 export type ColumnKind = 'all' | 'following' | 'list';
 
@@ -10,14 +11,13 @@ export interface Member {
 
 export interface Column {
   id: string;
-  network: Network;
+  source: Source; // combined, or only what's exclusive to one network
   kind: ColumnKind;
   name: string;
   emoji: string;
   handle?: string; // following: whose follows to show
   members?: Member[]; // list
   hideReplies?: boolean;
-  hsOnly?: boolean; // Hypersnap feeds: only Hypersnap-only accounts
 }
 
 export interface MutedAccount {
@@ -29,48 +29,56 @@ export interface MutedAccount {
 export interface AppState {
   columns: Column[];
   muted: MutedAccount[];
-  openIn: Record<Network, string>;
-  onboarded: boolean; // has picked which networks to start with
-  lastNetwork: Network; // default for the next "Add column"
+  onboarded: boolean;
+  lastSource: Source; // default for the next "Create a new feed"
 }
 
-const KEY = 'tabbycats:v2';
-const OLD_KEY = 'tabbycats:v1';
+const KEY = 'tabbycats:v3';
+const PREVIOUS = 'tabbycats:v2'; // feeds tied to one network (before combined feeds)
 
 export const newId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
     : Math.random().toString(36).slice(2);
 
-export function presetColumn(network: Network, kind: ColumnKind): Column {
-  if (kind === 'all') return { id: newId(), network, kind, name: 'All', emoji: '🌊' };
-  if (kind === 'following') return { id: newId(), network, kind, name: 'Following', emoji: '👥' };
-  return { id: newId(), network, kind, name: 'Custom feed', emoji: '📋', members: [] };
+export function presetColumn(source: Source, kind: ColumnKind): Column {
+  if (kind === 'all') {
+    if (source === 'farcaster') return { id: newId(), source, kind, name: 'Farcaster only', emoji: '🟣' };
+    if (source === 'hypersnap') return { id: newId(), source, kind, name: 'Hypersnap only', emoji: '🟠' };
+    return { id: newId(), source, kind, name: 'All', emoji: '🌊' };
+  }
+  if (kind === 'following') return { id: newId(), source, kind, name: 'Following', emoji: '👥' };
+  return { id: newId(), source, kind, name: 'Custom feed', emoji: '📋', members: [] };
 }
 
-export function starterColumns(networks: Network[]): Column[] {
-  return networks.flatMap((n) => [presetColumn(n, 'all'), presetColumn(n, 'following')]);
-}
+export const starterColumns = (): Column[] => [
+  presetColumn('combined', 'all'),
+  presetColumn('farcaster', 'all'),
+  presetColumn('hypersnap', 'all'),
+];
 
 function initial(): AppState {
-  const fallback: AppState = {
-    columns: [],
-    muted: [],
-    openIn: { farcaster: 'farcaster', hypersnap: 'quilcast' },
-    onboarded: false,
-    lastNetwork: 'farcaster',
-  };
+  const fallback: AppState = { columns: [], muted: [], onboarded: false, lastSource: 'combined' };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? 'null');
     if (Array.isArray(saved?.columns)) return { ...fallback, ...saved };
-    // Carry over boards from the two-tab version.
-    const old = JSON.parse(localStorage.getItem(OLD_KEY) ?? 'null');
-    if (old?.boards) {
-      const columns = (['farcaster', 'hypersnap'] as Network[]).flatMap((n) =>
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (old.boards[n] ?? []).map((c: any) => ({ ...c, network: n })),
-      );
-      return { ...fallback, columns, openIn: { ...fallback.openIn, ...old.openIn }, onboarded: true };
+
+    // Upgrade from per-network feeds: start with the new defaults, keep one Following feed
+    // and every custom feed (now combined), and drop the near-duplicate per-network "All" feeds.
+    const old = JSON.parse(localStorage.getItem(PREVIOUS) ?? 'null');
+    if (Array.isArray(old?.columns)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const oldCols = old.columns as any[];
+      const following = oldCols.find((c) => c.kind === 'following');
+      const keep: Column[] = [
+        ...(following
+          ? [{ ...presetColumn('combined', 'following'), name: following.name, emoji: following.emoji, handle: following.handle, hideReplies: following.hideReplies }]
+          : []),
+        ...oldCols
+          .filter((c) => c.kind === 'list')
+          .map((c) => ({ id: c.id, source: 'combined' as Source, kind: 'list' as ColumnKind, name: c.name, emoji: c.emoji, members: c.members ?? [], hideReplies: c.hideReplies })),
+      ];
+      return { ...fallback, onboarded: true, muted: old.muted ?? [], columns: [...starterColumns(), ...keep] };
     }
   } catch {
     /* storage unavailable or corrupt: start fresh */

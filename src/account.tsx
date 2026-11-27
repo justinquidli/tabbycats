@@ -242,19 +242,19 @@ export function Composer({
   accounts,
   parent,
   parentName,
-  defaultNetwork,
+  replyNetwork,
   onClose,
   onSent,
 }: {
   accounts: Accounts;
   parent?: Cast;
   parentName?: string;
-  defaultNetwork: Network;
+  replyNetwork?: Network; // replies go to the network chosen for the cast
   onClose: () => void;
   onSent: (network: Network) => void;
 }) {
   const available = (Object.keys(NETWORKS) as Network[]).filter((n) => accounts[n]);
-  const [network, setNetwork] = useState<Network>(parent?.network ?? (accounts[defaultNetwork] ? defaultNetwork : available[0]));
+  const [network, setNetwork] = useState<Network>(replyNetwork ?? (accounts.farcaster ? 'farcaster' : available[0]));
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');

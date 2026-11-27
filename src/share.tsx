@@ -1,13 +1,14 @@
 // Share a custom feed as a link: the whole list lives in the URL fragment, so there's no
 // server involved and the list never leaves the people who pass the link around.
 import { useEffect, useState } from 'react';
-import { NETWORKS, type Network, type Profile, getProfile } from './api';
+import { type Network, type Profile, getProfile } from './api';
+import { SOURCES, type Source } from './sources';
 import type { Column } from './store';
 
 export interface SharedFeed {
   name: string;
   emoji: string;
-  network: Network;
+  source: Source;
   fids: number[];
   by?: { network: Network; fid: number };
 }
@@ -27,7 +28,7 @@ export function shareLink(col: Column, by?: { network: Network; fid: number }) {
     v: 1,
     n: col.name,
     e: col.emoji,
-    net: col.network,
+    src: col.source,
     m: (col.members ?? []).map((m) => m.fid).slice(0, MAX_MEMBERS),
     ...(by ? { by: [by.network === 'farcaster' ? 'f' : 'h', by.fid] } : {}),
   };
@@ -39,7 +40,7 @@ export function readSharedFeed(): SharedFeed | null {
   if (!m) return null;
   try {
     const d = JSON.parse(fromBase64Url(m[1]));
-    const network: Network = d.net === 'hypersnap' ? 'hypersnap' : 'farcaster';
+    const source: Source = d.src === 'farcaster' || d.src === 'hypersnap' ? d.src : 'combined'; // older links had no source
     const fids = Array.isArray(d.m)
       ? [...new Set<number>(d.m.filter((x: unknown) => Number.isInteger(x) && (x as number) > 0))].slice(0, MAX_MEMBERS)
       : [];
@@ -48,7 +49,7 @@ export function readSharedFeed(): SharedFeed | null {
       Array.isArray(d.by) && Number.isInteger(d.by[1])
         ? { network: (d.by[0] === 'h' ? 'hypersnap' : 'farcaster') as Network, fid: d.by[1] as number }
         : undefined;
-    return { name: String(d.n || 'Shared feed').slice(0, 60), emoji: String(d.e || '📋').slice(0, 8), network, fids, by };
+    return { name: String(d.n || 'Shared feed').slice(0, 60), emoji: String(d.e || '📋').slice(0, 8), source, fids, by };
   } catch {
     return null;
   }
@@ -57,6 +58,9 @@ export function readSharedFeed(): SharedFeed | null {
 export function clearSharedFeedFromUrl() {
   history.replaceState(null, '', location.pathname + location.search);
 }
+
+const profileNet = (feed: SharedFeed, fid: number): Network =>
+  feed.source === 'hypersnap' || fid >= 4294967296 ? 'hypersnap' : 'farcaster';
 
 export function SharedFeedModal({
   feed,
@@ -72,13 +76,13 @@ export function SharedFeedModal({
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    Promise.all(feed.fids.slice(0, 5).map((fid) => getProfile(feed.network, fid))).then(setPreview);
+    Promise.all(feed.fids.slice(0, 5).map((fid) => getProfile(profileNet(feed, fid), fid))).then(setPreview);
     if (feed.by) getProfile(feed.by.network, feed.by.fid).then(setCurator);
   }, [feed]);
 
   const add = async () => {
     setBusy(true);
-    const profiles = await Promise.all(feed.fids.map((fid) => getProfile(feed.network, fid)));
+    const profiles = await Promise.all(feed.fids.map((fid) => getProfile(profileNet(feed, fid), fid)));
     onAdd(profiles.map((p) => ({ fid: p.fid, username: p.username })));
   };
 
@@ -94,7 +98,7 @@ export function SharedFeedModal({
         <div className="shared-emoji">{feed.emoji}</div>
         <h2>{feed.name}</h2>
         <p className="shared-meta">
-          <span className={`net net-${feed.network}`}>{NETWORKS[feed.network].label}</span>
+          <span className={`net net-${feed.source}`}>{SOURCES[feed.source].tag}</span>
           {feed.fids.length} {feed.fids.length === 1 ? 'account' : 'accounts'}
           {curator && <> · shared by @{curator.username ?? curator.fid}</>}
         </p>

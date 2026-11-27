@@ -7,30 +7,32 @@ import { useProfile } from './CastCard';
 import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, loadAccounts, saveAccount } from './account';
 import { ColumnView } from './Column';
 import { type Column, type ColumnKind, presetColumn, starterColumns, useAppState } from './store';
+import { ALL_SOURCES, SOURCES, type Source } from './sources';
 
 const ALL_NETWORKS = Object.keys(NETWORKS) as Network[];
 
-function NetworkPicker({ value, onChange }: { value: Network; onChange: (n: Network) => void }) {
+function SourcePicker({ value, onChange }: { value: Source; onChange: (s: Source) => void }) {
   return (
-    <div className="switch" role="radiogroup" aria-label="Network">
-      {ALL_NETWORKS.map((n) => (
-        <button key={n} role="radio" aria-checked={n === value} className={n === value ? 'on' : ''} onClick={() => onChange(n)}>
-          {NETWORKS[n].label}
+    <div className="switch small source-switch" role="radiogroup" aria-label="Which casts">
+      {ALL_SOURCES.map((s) => (
+        <button key={s} role="radio" aria-checked={s === value} className={s === value ? 'on' : ''} title={SOURCES[s].about} onClick={() => onChange(s)}>
+          {SOURCES[s].label}
         </button>
       ))}
     </div>
   );
 }
 
-function AddColumn({ network, onNetwork, onAdd }: { network: Network; onNetwork: (n: Network) => void; onAdd: (kind: ColumnKind) => void }) {
+function AddColumn({ source, onSource, onAdd }: { source: Source; onSource: (s: Source) => void; onAdd: (kind: ColumnKind) => void }) {
+  const what = source === 'combined' ? 'from both networks' : `that only exists on ${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'}`;
   return (
     <section className="column add-column">
       <h2>Create a new feed</h2>
-      <NetworkPicker value={network} onChange={onNetwork} />
+      <SourcePicker value={source} onChange={onSource} />
       <button onClick={() => onAdd('all')}>
         <span>🌊</span>
         <b>All</b>
-        <small>Every new {NETWORKS[network].label} cast, the moment it lands</small>
+        <small>Every new cast {what}, the moment it lands</small>
       </button>
       <button onClick={() => onAdd('following')}>
         <span>👥</span>
@@ -46,25 +48,19 @@ function AddColumn({ network, onNetwork, onAdd }: { network: Network; onNetwork:
   );
 }
 
-function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
+function Welcome({ onStart }: { onStart: () => void }) {
   return (
     <div className="welcome">
       <div className="welcome-card">
         <img className="welcome-logo" src="/pfp-2.png" alt="TabbyCats" />
         <h1>Welcome to TabbyCats</h1>
-        <p>Your feeds, side by side. Which network do you prowl?</p>
+        <p>Farcaster and Hypersnap, side by side. Start with everything, plus what's only on each network.</p>
         <div className="welcome-actions">
-          <button className="btn" onClick={() => onPick(['farcaster'])}>
-            Farcaster
-          </button>
-          <button className="btn" onClick={() => onPick(['hypersnap'])}>
-            Hypersnap
-          </button>
-          <button className="btn-quiet" onClick={() => onPick(['farcaster', 'hypersnap'])}>
-            Both
+          <button className="btn" onClick={onStart}>
+            Start prowling
           </button>
         </div>
-        <p className="hint">You can add or remove feeds from either network any time. No herding required.</p>
+        <p className="hint">Add, remove and rearrange feeds any time. No herding required.</p>
         <p className="hint">
           News and updates:{' '}
           <a href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
@@ -88,7 +84,7 @@ export default function App() {
   const [accounts, setAccounts] = useState<Accounts>(loadAccounts);
   // 'choose' shows the network picker; a network opens that network's sign-in
   const [signingIn, setSigningIn] = useState<Network | 'choose' | null>(null);
-  const [composing, setComposing] = useState<{ parent?: Cast } | null>(null);
+  const [composing, setComposing] = useState<{ parent?: Cast; network?: Network } | null>(null);
   const hasAccount = Object.keys(accounts).length > 0;
   const setAccount = (network: Network, a: Account | null) => {
     saveAccount(network, a);
@@ -106,29 +102,34 @@ export default function App() {
     setToast(msg);
     setTimeout(() => setToast(''), 2500);
   };
+  // Most casts live on both networks; act on the first one you're signed in to (Farcaster first).
+  const writableNetwork = (cast: Cast): Network | undefined =>
+    (['farcaster', 'hypersnap'] as Network[]).find((n) => (cast.on ?? [cast.network]).includes(n) && accounts[n]);
   const writeApi = useMemo(
     () => ({
       accounts,
       signIn: (network?: Network) => setSigningIn(network ?? 'choose'),
       compose: (parent?: Cast) => {
-        const needed = parent?.network;
-        if (needed ? accounts[needed] : hasAccount) setComposing({ parent });
-        else setSigningIn(needed ?? 'choose');
+        if (!parent) return hasAccount ? setComposing({}) : setSigningIn('choose');
+        // Reply on whichever network the cast is on that you're signed in to
+        const network = writableNetwork(parent);
+        if (network) setComposing({ parent, network });
+        else setSigningIn(parent.network);
       },
       react: async (kind: 'like' | 'recast', cast: Cast) => {
-        const account = accounts[cast.network];
-        if (!account) {
+        const network = writableNetwork(cast);
+        if (!network) {
           setSigningIn(cast.network);
           throw new Error('signed out');
         }
-        await react(account, cast.network, kind, { fid: cast.fid, hash: cast.hash });
+        await react(accounts[network]!, network, kind, { fid: cast.fid, hash: cast.hash });
       },
     }),
     [accounts, hasAccount],
   );
   const { columns } = state;
   const mutedSet = useMemo(() => new Set(state.muted.map((m) => `${m.network}:${m.fid}`)), [state.muted]);
-  const mute = (network: Network, fid: number, username?: string) =>
+  const mute = (network: Network, fid: number, username?: string) => // muting applies on both networks
     setState((s) =>
       s.muted.some((m) => m.network === network && m.fid === fid) ? s : { ...s, muted: [...s.muted, { network, fid, username }] },
     );
@@ -136,7 +137,7 @@ export default function App() {
   const setColumns = (fn: (cols: Column[]) => Column[]) => setState((s) => ({ ...s, columns: fn(s.columns) }));
 
   const add = (kind: ColumnKind) => {
-    const col = presetColumn(state.lastNetwork, kind);
+    const col = presetColumn(state.lastSource, kind);
     setJustAdded(kind === 'list' ? col.id : null);
     setColumns((cols) => [...cols, col]);
   };
@@ -149,12 +150,12 @@ export default function App() {
             setIncoming(null);
           }}
           onAdd={(members) => {
-            const col = { ...presetColumn(incoming.network, 'list'), name: incoming.name, emoji: incoming.emoji, members };
+            const col = { ...presetColumn(incoming.source, 'list'), name: incoming.name, emoji: incoming.emoji, members };
             // First visit straight from a share link: start them with the basics plus this feed
             setState((s) =>
               s.onboarded
                 ? { ...s, columns: [...s.columns, col] }
-                : { ...s, onboarded: true, lastNetwork: incoming.network, columns: [...starterColumns([incoming.network]), col] },
+                : { ...s, onboarded: true, columns: [...starterColumns(), col] },
             );
             clearSharedFeedFromUrl();
             setIncoming(null);
@@ -167,8 +168,7 @@ export default function App() {
     return (
       <div className="app">
         <Welcome
-          onPick={(networks) =>
-            setState((s) => ({ ...s, onboarded: true, lastNetwork: networks[0], columns: starterColumns(networks) }))
+          onStart={() => setState((s) => ({ ...s, onboarded: true, columns: starterColumns() }))
           }
         />
         {sharedModal}
@@ -253,13 +253,12 @@ export default function App() {
         {columns.map((col, i) => (
           <ColumnView
             key={col.id}
-            network={col.network}
             col={col}
             index={i}
             count={columns.length}
             startEditing={col.id === justAdded}
             muted={mutedSet}
-            onMute={(fid, username) => mute(col.network, fid, username)}
+            onMute={(fid, username) => mute(col.source === 'hypersnap' ? 'hypersnap' : 'farcaster', fid, username)}
             onChange={(patch) => setColumns((cols) => cols.map((c) => (c.id === col.id ? { ...c, ...patch } : c)))}
             onRemove={() => setColumns((cols) => cols.filter((c) => c.id !== col.id))}
             onMove={(dir) =>
@@ -272,7 +271,7 @@ export default function App() {
             }
           />
         ))}
-        <AddColumn network={state.lastNetwork} onNetwork={(n) => setState((s) => ({ ...s, lastNetwork: n }))} onAdd={add} />
+        <AddColumn source={state.lastSource} onSource={(src) => setState((s) => ({ ...s, lastSource: src }))} onAdd={add} />
       </main>
 
       {signingIn === 'choose' && (
@@ -303,7 +302,7 @@ export default function App() {
           accounts={accounts}
           parent={composing.parent}
           parentName={composing.parent ? peekProfile(composing.parent.network, composing.parent.fid)?.username : undefined}
-          defaultNetwork={state.lastNetwork}
+          replyNetwork={composing.network}
           onClose={() => setComposing(null)}
           onSent={() => flash(composing.parent ? 'Reply sent 🐾' : 'Cast sent 🐾')}
         />

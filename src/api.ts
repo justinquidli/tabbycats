@@ -23,6 +23,7 @@ export interface Cast {
   embeds: { url?: string; castId?: CastId }[];
   parent?: CastId;
   parentUrl?: string;
+  on?: Network[]; // networks this cast was seen on (set when feeds merge both networks)
 }
 
 export interface Profile {

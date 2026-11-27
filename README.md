@@ -2,10 +2,10 @@
 
 A simple, column-based reader for **Farcaster** and **Hypersnap**. Line up the feeds you care about side by side, like a board.
 
-- **🌊 All**: every new cast on the network, live and newest first
+- **🌊 All**: every new cast from Farcaster and Hypersnap, live, newest first, without duplicates
+- **🟣 Farcaster only / 🟠 Hypersnap only**: casts that exist on just one network (accounts from before the Nov 2026 split post to both, so these are the exclusives)
 - **👥 Following**: casts from the accounts someone follows
-- **📋 Lists**: pick the accounts yourself (teammates, meme kings, token projects…)
-- Mix Farcaster and Hypersnap columns on one board; each column is labelled with its network
+- **📋 Custom feeds**: pick the accounts yourself, and share them as a link
 - Rename columns, give them an emoji, reorder, hide replies, pause, remove
 - Mute accounts across every column
 - Open any cast in another client: Farcaster, Quilcast, Firefly and more (list adapted from [Forkcaster](https://github.com/artlu99/forkcaster_xyz), MIT)

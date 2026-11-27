@@ -1,10 +1,9 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { type Cast, type Network, NETWORKS, getCastsByFid, getFollowing, getProfile, resolveHandle } from './api';
+import { type Cast, type Network, getCastsByFid, getFollowing, getProfile, resolveHandle } from './api';
 import { CastCard } from './CastCard';
-import { useFirehose } from './firehose';
 import type { Column } from './store';
 import { useWrite } from './account';
-import { isHypersnapNative } from './hsonly';
+import { FIRST_NATIVE_FID, SOURCES, type Source, mergeByHash, pickSource, useCombinedFirehose } from './sources';
 import { shareLink } from './share';
 
 const MAX_HISTORY_FIDS = 300;
@@ -20,7 +19,12 @@ interface FidState {
 
 const followCache = new Map<string, number[]>();
 
-function useColumnFids(network: Network, col: Column): FidState {
+// Handles and follow lists come from Farcaster's node (shared history), except for
+// Hypersnap-only feeds and native Hypersnap accounts, which only Hypersnap knows.
+const graphNetwork = (source: Source, fid?: number): Network =>
+  source === 'hypersnap' || (fid !== undefined && fid >= FIRST_NATIVE_FID) ? 'hypersnap' : 'farcaster';
+
+function useColumnFids(source: Source, col: Column): FidState {
   const listKey = (col.members ?? []).map((m) => m.fid).join(',');
   const [state, setState] = useState<FidState>({ loading: false });
   useEffect(() => {
@@ -32,7 +36,7 @@ function useColumnFids(network: Network, col: Column): FidState {
       setState({ loading: false });
       return;
     }
-    const cacheKey = `${network}:${col.handle.toLowerCase()}`;
+    const cacheKey = `${source}:${col.handle.toLowerCase()}`;
     const cached = followCache.get(cacheKey);
     if (cached) {
       setState({ fids: cached, loading: false });
@@ -42,8 +46,8 @@ function useColumnFids(network: Network, col: Column): FidState {
     setState({ loading: true });
     (async () => {
       try {
-        const fid = await resolveHandle(network, col.handle!);
-        const fids = await getFollowing(network, fid);
+        const fid = await resolveHandle(graphNetwork(source), col.handle!);
+        const fids = await getFollowing(graphNetwork(source, fid), fid);
         followCache.set(cacheKey, fids);
         if (live) setState({ fids, loading: false });
       } catch (e) {
@@ -53,11 +57,13 @@ function useColumnFids(network: Network, col: Column): FidState {
     return () => {
       live = false;
     };
-  }, [network, col.kind, col.handle, listKey]);
+  }, [source, col.kind, col.handle, listKey]);
   return state;
 }
 
-function useHistory(network: Network, fids?: number[]) {
+// Recent casts for a set of accounts. Combined feeds read each account from one node; feeds
+// that show one network's exclusives read both so every cast can be compared.
+function useHistory(source: Source, fids?: number[]) {
   const key = fids?.join(',') ?? '';
   const [casts, setCasts] = useState<Cast[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,29 +73,44 @@ function useHistory(network: Network, fids?: number[]) {
     let live = true;
     const target = fids.slice(0, MAX_HISTORY_FIDS);
     const pageSize = target.length <= 20 ? 25 : target.length <= 100 ? 10 : 5;
-    const found: Cast[] = [];
+    const jobs: { network: Network; fid: number }[] = target.flatMap((fid) =>
+      fid >= FIRST_NATIVE_FID
+        ? [{ network: 'hypersnap' as Network, fid }]
+        : source === 'combined'
+          ? [{ network: 'farcaster' as Network, fid }]
+          : [
+              { network: 'farcaster' as Network, fid },
+              { network: 'hypersnap' as Network, fid },
+            ],
+    );
+    const found: Record<Network, Cast[]> = { farcaster: [], hypersnap: [] };
+    const publish = () =>
+      setCasts(mergeByHash([
+        { network: 'farcaster', casts: found.farcaster },
+        { network: 'hypersnap', casts: found.hypersnap },
+      ]));
     let done = 0;
     setLoading(true);
     Promise.all(
-      target.map((fid) =>
-        getCastsByFid(network, fid, pageSize)
-          .then((cs) => found.push(...cs))
+      jobs.map((j) =>
+        getCastsByFid(j.network, j.fid, pageSize)
+          .then((cs) => found[j.network].push(...cs))
           .catch(() => {})
           .finally(() => {
             done++;
-            if (live && done % 15 === 0) setCasts([...found]);
+            if (live && done % 15 === 0) publish();
           }),
       ),
     ).then(() => {
       if (!live) return;
-      setCasts(found);
+      publish();
       setLoading(false);
     });
     return () => {
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [network, key]);
+  }, [source, key]);
   return { casts, loading };
 }
 
@@ -128,7 +149,7 @@ function HandleForm({ initial, label, onSubmit }: { initial?: string; label: str
   );
 }
 
-function MemberEditor({ network, col, onChange }: { network: Network; col: Column; onChange: (p: Partial<Column>) => void }) {
+function MemberEditor({ source, col, onChange }: { source: Source; col: Column; onChange: (p: Partial<Column>) => void }) {
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const members = col.members ?? [];
@@ -136,9 +157,9 @@ function MemberEditor({ network, col, onChange }: { network: Network; col: Colum
     setError('');
     setBusy(true);
     try {
-      const fid = await resolveHandle(network, handle);
+      const fid = await resolveHandle(graphNetwork(source), handle);
       if (!members.some((m) => m.fid === fid)) {
-        const p = await getProfile(network, fid);
+        const p = await getProfile(graphNetwork(source, fid), fid);
         onChange({ members: [...members, { fid, username: p.username ?? handle }] });
       }
     } catch (e) {
@@ -168,7 +189,6 @@ function MemberEditor({ network, col, onChange }: { network: Network; col: Colum
 }
 
 interface Props {
-  network: Network;
   col: Column;
   index: number;
   count: number;
@@ -180,19 +200,19 @@ interface Props {
   onMute: (fid: number, username?: string) => void;
 }
 
-export function ColumnView({ network, col, index, count, startEditing, onChange, onRemove, onMove, muted, onMute }: Props) {
-  const fh = useFirehose(network);
+export function ColumnView({ col, index, count, startEditing, onChange, onRemove, onMove, muted, onMute }: Props) {
+  const source = col.source;
+  const fh = useCombinedFirehose();
   const { accounts } = useWrite();
-  // Pre-split accounts share their number on both networks, so a Farcaster sign-in also works here.
-  const account = accounts[network] ?? accounts.farcaster;
-  // A Following column with no handle shows the signed-in user's follows.
-  const autoFollow = col.kind === 'following' && !col.handle && account; // same FID on Hypersnap, which shares Farcaster's history
+  const account = source === 'hypersnap' ? accounts.hypersnap ?? accounts.farcaster : accounts.farcaster ?? accounts.hypersnap;
+  // A Following feed with no handle shows the signed-in user's follows.
+  const autoFollow = col.kind === 'following' && !col.handle && account;
   const effective = useMemo(
     () => (autoFollow ? { ...col, handle: String(account.fid) } : col),
     [col, autoFollow, account?.fid],
   );
-  const fids = useColumnFids(network, effective);
-  const history = useHistory(network, col.kind === 'all' ? undefined : fids.fids);
+  const fids = useColumnFids(source, effective);
+  const history = useHistory(source, col.kind === 'all' ? undefined : fids.fids);
   const [editing, setEditing] = useState(startEditing);
   // New casts wait behind a "new casts" button instead of pushing the column around.
   const [cutoff, setCutoff] = useState(() => Date.now());
@@ -200,25 +220,29 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
   const [limit, setLimit] = useState(PAGE);
   const [shared, setShared] = useState(false);
 
-  const baseLive = useMemo(() => {
+  const merged = useMemo(() => {
     let list: Cast[];
+    let judged: Set<string> | undefined;
     if (col.kind === 'all') list = fh.casts;
     else if (!fids.fids) list = [];
     else {
       const set = new Set(fids.fids);
-      const byHash = new Map<string, Cast>();
-      for (const c of history.casts) byHash.set(c.hash, c);
-      for (const c of fh.casts) if (set.has(c.fid)) byHash.set(c.hash, c);
-      list = [...byHash.values()].sort((a, b) => b.ts - a.ts);
+      list = mergeByHash([
+        { network: 'farcaster', casts: history.casts },
+        { network: 'farcaster', casts: fh.casts.filter((c) => set.has(c.fid)) },
+      ]);
+      // history for exclusive feeds was read from both networks, so it can be judged right away
+      if (source !== 'combined') judged = new Set(history.casts.map((c) => c.hash));
     }
-    return list.filter(
-      (c) => !fh.removed.has(c.hash) && !muted.has(`${network}:${c.fid}`) && !(col.hideReplies && c.parent),
+    return pickSource(list, source, fh.knownSince, judged).filter(
+      (c) =>
+        !fh.removed.has(c.hash) &&
+        !muted.has(`farcaster:${c.fid}`) &&
+        !muted.has(`hypersnap:${c.fid}`) &&
+        !(col.hideReplies && c.parent),
     );
-  }, [network, col.kind, col.hideReplies, fh.casts, fh.removed, fids.fids, history.casts, muted]);
-
-  // Optional: only native Hypersnap accounts
-  const hsOnly = network === 'hypersnap' && !!col.hsOnly;
-  const live = hsOnly ? baseLive.filter((c) => isHypersnapNative(c.fid)) : baseLive;
+  }, [source, col.kind, col.hideReplies, fh.casts, fh.removed, fh.knownSince, fids.fids, history.casts, muted]);
+  const live = merged;
 
   const settled = live.filter((c) => c.ts <= cutoff);
   const shown = settled.length ? settled : live; // nothing to hold back yet: just show what's there
@@ -249,7 +273,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
   } else if (fids.error) {
     notice = <div className="empty error">{fids.error}</div>;
   } else if (col.kind === 'all' && fh.status === 'error') {
-    notice = <div className="empty error">Couldn't reach the {NETWORKS[network].label} node. Circling back…</div>;
+    notice = <div className="empty error">Couldn't reach the network nodes. Circling back…</div>;
   }
 
   return (
@@ -257,8 +281,8 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
       <header className="col-head">
         <span className="col-emoji">{col.emoji || '📋'}</span>
         <h2 title={col.name}>{col.name || 'Untitled'}</h2>
-        <span className={`net net-${network}`} title={`Reading from ${NETWORKS[network].node.replace('https://', '')}`}>
-          {NETWORKS[network].label}
+        <span className={`net net-${source}`} title={SOURCES[source].about}>
+          {SOURCES[source].tag}
         </span>
         {col.kind === 'all' && fh.status === 'live' && <span className="live-dot" title="Live" />}
         <div className="col-tools">
@@ -281,17 +305,21 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
               <HandleForm initial={col.handle} label="Update" onSubmit={(h) => onChange({ handle: h })} />
             </div>
           )}
-          {col.kind === 'list' && <MemberEditor network={network} col={col} onChange={onChange} />}
+          {col.kind === 'list' && <MemberEditor source={source} col={col} onChange={onChange} />}
           <label className="check">
             <input type="checkbox" checked={!!col.hideReplies} onChange={(e) => onChange({ hideReplies: e.target.checked })} />
             Hide replies
           </label>
-          {network === 'hypersnap' && (
-            <label className="check" title="Only accounts created on Hypersnap. People who moved over from Farcaster can't be told apart automatically; add them to a custom feed.">
-              <input type="checkbox" checked={!!col.hsOnly} onChange={(e) => onChange({ hsOnly: e.target.checked })} />
-              Native Hypersnap accounts only
-            </label>
-          )}
+          <div className="field">
+            <label>Show</label>
+            <div className="switch small source-switch" role="radiogroup" aria-label="Which casts">
+              {(['combined', 'farcaster', 'hypersnap'] as Source[]).map((s) => (
+                <button key={s} role="radio" aria-checked={s === source} className={s === source ? 'on' : ''} title={SOURCES[s].about} onClick={() => onChange({ source: s })}>
+                  {SOURCES[s].label}
+                </button>
+              ))}
+            </div>
+          </div>
           {col.kind === 'list' && (col.members ?? []).length > 0 && (
             <div className="field">
               <label>Share this feed</label>
@@ -299,7 +327,8 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
                 <button
                   className="btn-quiet"
                   onClick={async () => {
-                    const by = accounts[network] ? { network, fid: accounts[network]!.fid } : undefined;
+                    const byNet: Network | undefined = accounts.farcaster ? 'farcaster' : accounts.hypersnap ? 'hypersnap' : undefined;
+                    const by = byNet ? { network: byNet, fid: accounts[byNet]!.fid } : undefined;
                     const url = shareLink(col, by);
                     try {
                       if (navigator.share && matchMedia('(pointer: coarse)').matches) await navigator.share({ title: col.name, url });
@@ -356,7 +385,7 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
       <div className="col-body" ref={body}>
         {notice}
         {!notice && shown.length === 0 && (
-          <div className="empty">{loading ? 'Pouncing on the latest casts…' : hsOnly ? 'Quiet as a cat nap. Native Hypersnap accounts are still few. To follow people who moved over from Farcaster, add them to a custom feed.' : 'Quiet as a cat nap. No casts yet.'}</div>
+          <div className="empty">{loading ? 'Pouncing on the latest casts…' : source !== 'combined' ? `Quiet as a cat nap. Only what's exclusive to ${source === 'farcaster' ? 'Farcaster' : 'Hypersnap'} lands here, and nearly everything shows up on both networks.` : 'Quiet as a cat nap. No casts yet.'}</div>
         )}
         {shown.slice(0, limit).map((c) => (
           <CastCard key={c.hash} cast={c} onMute={onMute} />
