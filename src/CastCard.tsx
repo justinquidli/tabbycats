@@ -89,7 +89,9 @@ function Embeds({ cast }: { cast: Cast }) {
             </a>
           );
         }
-        if (!e.url) return null;
+        // Embeds are written by whoever posted the cast: only ever link to web pages,
+        // never javascript: or other schemes that could run code on this page.
+        if (!e.url || !/^https?:\/\//i.test(e.url)) return null;
         if (IMG_RE.test(e.url) || e.url.includes('imagedelivery.net')) {
           return (
             <a key={i} className="embed-img-link" href={e.url} target="_blank" rel="noreferrer noopener">

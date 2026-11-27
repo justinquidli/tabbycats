@@ -58,6 +58,30 @@ async function submit(request) {
   return new Response(await res.text(), { status: res.status, headers: { 'content-type': 'application/json' } });
 }
 
+// Locks down what the page may load and talk to, so injected content can't run scripts or
+// send posting keys anywhere, and other sites can't frame TabbyCats to trick clicks.
+const CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' https: data:",
+  "connect-src 'self' https://snap.farcaster.xyz:3381 https://haatz.quilibrium.com https://api.farcaster.xyz",
+  "font-src 'self'",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'self'",
+  "frame-ancestors 'none'",
+].join('; ');
+
+function withSecurityHeaders(res) {
+  const out = new Response(res.body, res);
+  out.headers.set('content-security-policy', CSP);
+  out.headers.set('x-content-type-options', 'nosniff');
+  out.headers.set('referrer-policy', 'strict-origin-when-cross-origin');
+  out.headers.set('permissions-policy', 'camera=(), microphone=(), geolocation=()');
+  return out;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -65,8 +89,12 @@ export default {
       url.hostname = CANONICAL;
       return Response.redirect(url.toString(), 301);
     }
-    if (request.method === 'POST' && url.pathname === '/api/signer-request') return signerRequest(request, env);
+    if (request.method === 'POST' && url.pathname === '/api/signer-request') {
+      // Only TabbyCats' own pages may start a sign-in (raises the bar for look-alike sites).
+      if (request.headers.get('origin') !== `https://${CANONICAL}`) return json({ error: 'Forbidden' }, 403);
+      return signerRequest(request, env);
+    }
     if (request.method === 'POST' && url.pathname === '/api/submit') return submit(request);
-    return env.ASSETS.fetch(request);
+    return withSecurityHeaders(await env.ASSETS.fetch(request));
   },
 };
