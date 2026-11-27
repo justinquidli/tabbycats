@@ -218,14 +218,14 @@ export function ColumnView({ network, col, index, count, openInId, startEditing,
   if (col.kind === 'following' && !effective.handle) {
     notice = (
       <div className="empty">
-        <p>Whose follows should this column show?</p>
+        <p>Whose follows should this column keep an eye on?</p>
         <HandleForm label="Show" onSubmit={(h) => onChange({ handle: h })} />
       </div>
     );
   } else if (col.kind === 'list' && !(col.members ?? []).length && !editing) {
     notice = (
       <div className="empty">
-        <p>Add accounts to fill this column.</p>
+        <p>An empty basket. Add accounts to fill this column.</p>
         <button className="btn" onClick={() => setEditing(true)}>
           Add accounts
         </button>
@@ -234,7 +234,7 @@ export function ColumnView({ network, col, index, count, openInId, startEditing,
   } else if (fids.error) {
     notice = <div className="empty error">{fids.error}</div>;
   } else if (col.kind === 'all' && fh.status === 'error') {
-    notice = <div className="empty error">Couldn't reach the {NETWORKS[network].label} node. Retrying…</div>;
+    notice = <div className="empty error">Couldn't reach the {NETWORKS[network].label} node. Circling back…</div>;
   }
 
   return (
@@ -245,7 +245,7 @@ export function ColumnView({ network, col, index, count, openInId, startEditing,
         <span className={`net net-${network}`}>{NETWORKS[network].label}</span>
         {col.kind === 'all' && fh.status === 'live' && !frozen && <span className="live-dot" title="Live" />}
         <div className="col-tools">
-          <button title={frozen ? 'Resume' : 'Pause'} aria-label={frozen ? 'Resume' : 'Pause'} onClick={() => setFrozen(frozen ? null : live)}>
+          <button title={frozen ? 'Wake up (resume)' : 'Nap (pause)'} aria-label={frozen ? 'Resume' : 'Pause'} onClick={() => setFrozen(frozen ? null : live)}>
             {frozen ? '▶' : '⏸'}
           </button>
           <button title="Edit column" aria-label="Edit column" className={editing ? 'on' : ''} onClick={() => setEditing(!editing)}>
@@ -296,20 +296,20 @@ export function ColumnView({ network, col, index, count, openInId, startEditing,
 
       {col.kind === 'following' && fids.fids && fids.fids.length > MAX_HISTORY_FIDS && (
         <div className="note">
-          History from {MAX_HISTORY_FIDS} of {fids.fids.length} follows. New casts from all of them appear live.
+          Catching up on {MAX_HISTORY_FIDS} of {fids.fids.length} follows. New casts from all of them land here live.
         </div>
       )}
 
       {frozen && newWhilePaused > 0 && (
         <button className="new-pill" onClick={() => setFrozen(null)}>
-          {newWhilePaused} new · resume
+          {newWhilePaused} new · wake up
         </button>
       )}
 
       <div className="col-body">
         {notice}
         {!notice && shown.length === 0 && (
-          <div className="empty">{loading ? 'Loading casts…' : 'No casts yet.'}</div>
+          <div className="empty">{loading ? 'Pouncing on the latest casts…' : 'Quiet as a cat nap. No casts yet.'}</div>
         )}
         {shown.slice(0, limit).map((c) => (
           <CastCard key={c.hash} cast={c} openInId={openInId} onMute={onMute} />
@@ -320,7 +320,7 @@ export function ColumnView({ network, col, index, count, openInId, startEditing,
           </button>
         )}
         {shown.length > 0 && shown.length <= limit && col.kind === 'all' && (
-          <div className="note">That's everything since you opened the board, plus the 30 minutes before.</div>
+          <div className="note">That's everything since you curled up here, plus the 30 minutes before.</div>
         )}
       </div>
     </section>

@@ -69,7 +69,7 @@ export function SignInModal({ onClose, onDone }: { onClose: () => void; onDone: 
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ key }),
         });
-        if (!res.ok) throw new Error("Couldn't reach Farcaster. Try again in a moment.");
+        if (!res.ok) throw new Error("Couldn't reach Farcaster. Give it a moment and try again.");
         const { token, deeplinkUrl } = await res.json();
         const qr = await QR.toDataURL(deeplinkUrl, { margin: 1, width: 240, color: { dark: '#2b1700', light: '#fff8ea' } });
         if (!live) return;
@@ -78,7 +78,7 @@ export function SignInModal({ onClose, onDone }: { onClose: () => void; onDone: 
         const poll = async () => {
           if (!live) return;
           if (Date.now() - started > 10 * 60 * 1000) {
-            setStep({ kind: 'error', message: 'The request expired. Try again.' });
+            setStep({ kind: 'error', message: 'This request wandered off. Try again.' });
             return;
           }
           try {
@@ -113,7 +113,7 @@ export function SignInModal({ onClose, onDone }: { onClose: () => void; onDone: 
           ×
         </button>
         <h2>Sign in with Farcaster</h2>
-        {step.kind === 'starting' && <p className="hint">Preparing your request…</p>}
+        {step.kind === 'starting' && <p className="hint">Stretching… preparing your request</p>}
         {step.kind === 'waiting' && (
           <>
             <p>Scan with your phone's camera and approve TabbyCats in the Farcaster app.</p>
@@ -127,7 +127,7 @@ export function SignInModal({ onClose, onDone }: { onClose: () => void; onDone: 
             </p>
           </>
         )}
-        {step.kind === 'approved' && <p>Approved! Waiting for Farcaster to confirm… this takes a few seconds.</p>}
+        {step.kind === 'approved' && <p>Approved! Purring along while Farcaster confirms… just a few seconds.</p>}
         {step.kind === 'error' && (
           <>
             <p className="error">{step.message}</p>
@@ -194,7 +194,7 @@ export function Composer({
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) send();
           }}
-          placeholder={parent ? 'Write your reply…' : "What's happening?"}
+          placeholder={parent ? 'Write your reply…' : 'What has your whiskers twitching?'}
           rows={5}
         />
         <div className="composer-foot">

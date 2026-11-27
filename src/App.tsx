@@ -26,17 +26,17 @@ function AddColumn({ network, onNetwork, onAdd }: { network: Network; onNetwork:
       <button onClick={() => onAdd('all')}>
         <span>🌊</span>
         <b>All</b>
-        <small>Every new {NETWORKS[network].label} cast, newest first</small>
+        <small>Every new {NETWORKS[network].label} cast, the moment it lands</small>
       </button>
       <button onClick={() => onAdd('following')}>
         <span>👥</span>
         <b>Following</b>
-        <small>Casts from the accounts someone follows</small>
+        <small>Casts from everyone someone keeps an eye on</small>
       </button>
       <button onClick={() => onAdd('list')}>
         <span>📋</span>
         <b>New list</b>
-        <small>Pick the accounts yourself</small>
+        <small>Hand-pick the accounts yourself</small>
       </button>
     </section>
   );
@@ -48,7 +48,7 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
       <div className="welcome-card">
         <img className="welcome-logo" src="/pfp-2.png" alt="TabbyCats" />
         <h1>Welcome to TabbyCats</h1>
-        <p>Your feeds, side by side. Which network do you read?</p>
+        <p>Your feeds, side by side. Which network do you prowl?</p>
         <div className="welcome-actions">
           <button className="btn" onClick={() => onPick(['farcaster'])}>
             Farcaster
@@ -60,7 +60,7 @@ function Welcome({ onPick }: { onPick: (networks: Network[]) => void }) {
             Both
           </button>
         </div>
-        <p className="hint">You can add or remove columns from either network any time.</p>
+        <p className="hint">You can add or remove columns from either network any time. No herding required.</p>
         <p className="hint">
           News and updates:{' '}
           <a href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
@@ -147,7 +147,7 @@ export default function App() {
                   title="Sign out"
                   aria-label="Sign out"
                   onClick={() => {
-                    if (confirm('Sign out of Farcaster on this device?')) {
+                    if (confirm('Sign out of Farcaster on this device? Your board stays put.')) {
                       saveAccount(null);
                       setAccount(null);
                     }
@@ -177,7 +177,7 @@ export default function App() {
       {showMuted && (
         <div className="muted-panel">
           {state.muted.length === 0 ? (
-            <span className="hint">No muted accounts. Use "Mute" on any cast to hide that account everywhere.</span>
+            <span className="hint">Nobody's been shooed yet. Use "Mute" on any cast to hide that account everywhere.</span>
           ) : (
             <div className="chips">
               {state.muted.map((m) => (
@@ -233,7 +233,7 @@ export default function App() {
             saveAccount(a);
             setAccount(a);
             setSigningIn(false);
-            flash(`Signed in as @${a.username ?? a.fid}`);
+            flash(`Welcome in, @${a.username ?? a.fid} 🐾`);
           }}
         />
       )}
@@ -243,7 +243,7 @@ export default function App() {
           parent={composing.parent}
           parentName={composing.parent ? peekProfile('farcaster', composing.parent.fid)?.username : undefined}
           onClose={() => setComposing(null)}
-          onSent={() => flash(composing.parent ? 'Reply sent' : 'Cast sent')}
+          onSent={() => flash(composing.parent ? 'Reply sent 🐾' : 'Cast sent 🐾')}
         />
       )}
       {toast && <div className="toast">{toast}</div>}
