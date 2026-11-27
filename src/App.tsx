@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { type Cast, NETWORKS, type Network, peekProfile } from './api';
 import { react } from './write';
+import { AboutModal } from './About';
 import { useProfile } from './CastCard';
 import { Composer, type FcAccount, SignInModal, WriteContext, loadAccount, saveAccount } from './account';
 import { ColumnView } from './Column';
@@ -87,6 +88,7 @@ export default function App() {
   const [signingIn, setSigningIn] = useState(false);
   const [composing, setComposing] = useState<{ parent?: Cast } | null>(null);
   const [toast, setToast] = useState('');
+  const [showAbout, setShowAbout] = useState(false);
   const flash = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(''), 2500);
@@ -137,10 +139,10 @@ export default function App() {
     <WriteContext.Provider value={writeApi}>
     <div className="app">
       <header className="topbar">
-        <div className="brand">
+        <button className="brand" onClick={() => setShowAbout(true)} title="About TabbyCats">
           <img className="logo" src="/pfp-2.png" alt="" />
           <span className="wordmark">TabbyCats</span>
-        </div>
+        </button>
         <div className="prefs">
           {account ? (
             <>
@@ -172,9 +174,9 @@ export default function App() {
           <button className="btn-quiet small" onClick={() => setShowMuted(!showMuted)} aria-expanded={showMuted}>
             Muted ({state.muted.length})
           </button>
-          <a className="follow-link" href="https://farcaster.xyz/tabbycats" target="_blank" rel="noreferrer noopener">
-            Follow @tabbycats
-          </a>
+          <button className="follow-link" onClick={() => setShowAbout(true)}>
+            About
+          </button>
           <span className="badge" title="Your board is saved in this browser only">
             Saved on this device
           </span>
@@ -252,6 +254,7 @@ export default function App() {
           onSent={() => flash(composing.parent ? 'Reply sent 🐾' : 'Cast sent 🐾')}
         />
       )}
+      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
       {toast && <div className="toast">{toast}</div>}
     </div>
     </WriteContext.Provider>

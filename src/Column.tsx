@@ -248,7 +248,9 @@ export function ColumnView({ network, col, index, count, startEditing, onChange,
       <header className="col-head">
         <span className="col-emoji">{col.emoji || '📋'}</span>
         <h2 title={col.name}>{col.name || 'Untitled'}</h2>
-        <span className={`net net-${network}`}>{NETWORKS[network].label}</span>
+        <span className={`net net-${network}`} title={`Reading from ${NETWORKS[network].node.replace('https://', '')}`}>
+          {NETWORKS[network].label}
+        </span>
         {col.kind === 'all' && fh.status === 'live' && <span className="live-dot" title="Live" />}
         <div className="col-tools">
           <button title="Edit feed" aria-label="Edit feed" className={editing ? 'on' : ''} onClick={() => setEditing(!editing)}>

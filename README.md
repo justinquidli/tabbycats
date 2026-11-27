@@ -19,7 +19,7 @@ Everything is saved in your browser. There is no backend and no account; TabbyCa
 
 **Posting (Farcaster):** sign in with Farcaster by scanning a QR code and approving TabbyCats in the Farcaster app. TabbyCats then holds a posting key in your browser that can cast, reply, like and recast, but can't move your account. Remove it any time in Farcaster's settings under Connected apps. Hypersnap posting is next.
 
-The app's own account is [@tabbycats](https://farcaster.xyz/tabbycats) (FID 3359500). Its keys live outside the repo; `scripts/update-profile.mjs` updates its profile.
+The app's own accounts are [@tabbycats](https://farcaster.xyz/tabbycats) on Farcaster (FID 3359500) and [TabbyCats](https://quilcast.com/u/4294967372) on Hypersnap (FID 4294967372). Its keys live outside the repo; `scripts/update-profile.mjs` updates its profile.
 
 ## Develop
 
