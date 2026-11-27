@@ -1425,3 +1425,8 @@ button.brand {
   flex-basis: 100%;
   margin-top: 0;
 }
+
+/* keep a little space above the handle box when it scrolls into view */
+.handle-form input {
+  scroll-margin-top: 12px;
+}

@@ -163,7 +163,12 @@ function HandleForm({
       <input
         value={v}
         onChange={(e) => setV(e.target.value)}
-        onFocus={() => setFocused(true)}
+        onFocus={(e) => {
+          setFocused(true);
+          // Give the suggestions room below the box, above any on-screen keyboard (wait for it to open)
+          const el = e.currentTarget;
+          setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 300);
+        }}
         onBlur={() => setFocused(false)}
         onKeyDown={(e) => {
           if (!showList) return;
@@ -361,6 +366,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
 
       {editing && (
         <div className="col-settings">
+          {col.kind === 'list' && <MemberEditor source={source} col={col} onChange={onChange} />}
           <div className="field">
             <label>Name</label>
             <input value={col.name} onChange={(e) => onChange({ name: e.target.value })} aria-label="Feed name" />
@@ -386,7 +392,6 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
               />
             </div>
           )}
-          {col.kind === 'list' && <MemberEditor source={source} col={col} onChange={onChange} />}
           <label className="check">
             <input type="checkbox" checked={!!col.hideReplies} onChange={(e) => onChange({ hideReplies: e.target.checked })} />
             Hide replies
