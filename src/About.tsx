@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import QR from 'qrcode';
+import { makeBoardLink } from './board';
+import type { AppState } from './store';
 import { HYPERSNAP_NODES, NETWORKS, type Network, switchHypersnapNode } from './api';
 
 type Status = 'checking' | 'live' | 'down';
@@ -48,7 +51,54 @@ function NodeRow({ network, url }: { network: Network; url: string }) {
   );
 }
 
-export function AboutModal({ onClose }: { onClose: () => void }) {
+function MoveBoard({ state }: { state: AppState }) {
+  const [link, setLink] = useState<{ url: string; qr: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const [copied, setCopied] = useState(false);
+  const make = async () => {
+    setBusy(true);
+    setError('');
+    try {
+      const url = await makeBoardLink(state);
+      const qr = await QR.toDataURL(url, { margin: 1, width: 200, color: { dark: '#2b1700', light: '#fff8ea' } });
+      setLink({ url, qr });
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="about-section">
+      <h3>Move to another device</h3>
+      <p className="hint">Your feeds, their order and your mutes, in a link that works once, for an hour. You'll sign in again there.</p>
+      {link ? (
+        <div className="move-board">
+          <img className="qr" src={link.qr} alt="QR code with the link to your board" />
+          <button
+            className="btn-quiet"
+            onClick={async () => {
+              await navigator.clipboard.writeText(link.url).catch(() => {});
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+          >
+            {copied ? 'Link copied ✓' : '🔗 Copy link'}
+          </button>
+          <p className="hint">Scan it with your phone's camera, or send yourself the link.</p>
+        </div>
+      ) : (
+        <button className="btn-quiet" disabled={busy || !state.columns.length} onClick={make}>
+          {busy ? 'Making link…' : '📦 Make a link'}
+        </button>
+      )}
+      {error && <div className="error">{error}</div>}
+    </section>
+  );
+}
+
+export function AboutModal({ state, onClose }: { state: AppState; onClose: () => void }) {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', onKey);
@@ -83,6 +133,8 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
             servers. Photos you attach go to free public image hosts, cleaned of location data first.
           </p>
         </section>
+
+        <MoveBoard state={state} />
 
         <section className="about-section">
           <h3>Follow along</h3>

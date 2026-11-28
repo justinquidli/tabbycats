@@ -1,4 +1,4 @@
-import { Component, type ReactNode, memo, useEffect, useMemo, useState } from 'react';
+import { Component, type ReactNode, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { type Cast, type Network, type Profile, getProfile, peekProfile } from './api';
 import { openLinks, primaryLink } from './clients';
 import { useWrite } from './account';
@@ -76,6 +76,76 @@ function CastText({ cast }: { cast: Cast }) {
 }
 
 const IMG_RE = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i;
+const VIDEO_RE = /\.(mp4|webm|mov|m4v|m3u8)(\?|$)/i;
+
+// Videos: plain files play in the browser's own player. Streams (.m3u8, how Farcaster's app hosts
+// video) play natively in Safari; elsewhere a small stream player loads the first time you press play.
+function Video({ url }: { url: string }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const stream = /\.m3u8(\?|$)/i.test(url);
+  const [started, setStarted] = useState(!stream);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    const v = ref.current;
+    if (!started || !v || !stream) return;
+    let cancelled = false;
+    let player: { destroy(): void } | undefined;
+    if (v.canPlayType('application/vnd.apple.mpegurl')) {
+      v.src = url;
+      v.play().catch(() => {});
+    } else {
+      import('hls.js/light')
+        .then(({ default: Hls }) => {
+          if (cancelled) return;
+          if (!Hls.isSupported()) return setFailed(true);
+          const hls = new Hls({ enableWorker: false });
+          player = hls;
+          hls.on(Hls.Events.ERROR, (_e, d) => d.fatal && setFailed(true));
+          hls.loadSource(url);
+          hls.attachMedia(v);
+          v.play().catch(() => {});
+        })
+        .catch(() => setFailed(true));
+    }
+    return () => {
+      cancelled = true;
+      player?.destroy();
+    };
+  }, [started, stream, url]);
+
+  if (failed) {
+    return (
+      <a className="embed-link" href={url} target="_blank" rel="noreferrer noopener">
+        🎬 Couldn't play this video here. Open it ↗
+      </a>
+    );
+  }
+  if (!started) {
+    return (
+      <button
+        className="embed-video-start"
+        onClick={(e) => {
+          e.stopPropagation();
+          setStarted(true);
+        }}
+      >
+        <span aria-hidden="true">▶</span> Play video
+      </button>
+    );
+  }
+  return (
+    <video
+      ref={ref}
+      className="embed-video"
+      controls
+      playsInline
+      preload="metadata"
+      src={stream ? undefined : url}
+      onClick={(e) => e.stopPropagation()}
+      onError={() => !stream && setFailed(true)}
+    />
+  );
+}
 
 function Embeds({ cast }: { cast: Cast }) {
   if (!cast.embeds.length) return null;
@@ -92,6 +162,7 @@ function Embeds({ cast }: { cast: Cast }) {
         // Embeds are written by whoever posted the cast: only ever link to web pages,
         // never javascript: or other schemes that could run code on this page.
         if (!e.url || !/^https?:\/\//i.test(e.url)) return null;
+        if (VIDEO_RE.test(e.url)) return <Video key={i} url={e.url} />;
         if (IMG_RE.test(e.url) || e.url.includes('imagedelivery.net')) {
           return (
             <a key={i} className="embed-img-link" href={e.url} target="_blank" rel="noreferrer noopener">

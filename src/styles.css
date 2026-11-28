@@ -520,6 +520,38 @@ time {
   border: 1px solid var(--line);
 }
 
+.embed-video {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  border-radius: 10px;
+  background: #000;
+}
+
+.embed-video-start {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 320px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--ink);
+  color: var(--cream);
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.embed-video-start span {
+  font-size: 22px;
+}
+
+.embed-video-start:hover {
+  background: #4a2a00;
+}
+
 .embed-link {
   display: block;
   font-size: 13px;
@@ -1576,4 +1608,18 @@ button.brand {
   font-size: 15px;
   line-height: 22px;
   padding: 0;
+}
+
+/* Moving a board to another device */
+.move-board {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.move-board .qr {
+  width: 160px;
+  height: 160px;
+  border-radius: 10px;
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { type Cast, NETWORKS, type Network, peekProfile } from './api';
 import { react } from './write';
 import { AboutModal } from './About';
+import { type Board, boardIdFromUrl, takeBoard } from './board';
 import { type SharedFeed, SharedFeedModal, clearSharedFeedFromUrl, fetchSharedFeed, readSharedFeed } from './share';
 import { useProfile } from './CastCard';
 import { type Account, type Accounts, Composer, FarcasterSignIn, HypersnapSignIn, SignInChooser, WriteContext, forgetKey, loadAccounts, migrateKeys, saveAccount } from './account';
@@ -218,6 +219,64 @@ export default function App() {
     setColumns((cols) => [...cols, col]);
   };
 
+  // A board sent from another device (/b/<id>)
+  const [board, setBoard] = useState<Board | { error: string } | null>(null);
+  useEffect(() => {
+    const id = boardIdFromUrl();
+    if (!id) return;
+    takeBoard(id).then(setBoard, (e) => setBoard({ error: (e as Error).message }));
+    history.replaceState(null, '', '/');
+  }, []);
+  const boardModal = board && (
+    <div className="modal-backdrop" onClick={() => setBoard(null)}>
+      <div className="modal shared-feed" role="dialog" aria-modal="true" aria-label="Board from another device" onClick={(e) => e.stopPropagation()}>
+        <button className="modal-close" aria-label="Close" onClick={() => setBoard(null)}>
+          ×
+        </button>
+        <div className="shared-emoji">🐾</div>
+        {'error' in board ? (
+          <>
+            <h2>Link didn't work</h2>
+            <p className="hint">{board.error}. Make a new one on your other device.</p>
+            <div className="shared-actions">
+              <button className="btn" onClick={() => setBoard(null)}>
+                OK
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h2>Your board from another device</h2>
+            <p className="shared-description">
+              {board.columns.map((c) => `${c.emoji} ${c.name}`).join(' · ')}
+            </p>
+            <p className="hint">
+              {board.columns.length} {board.columns.length === 1 ? 'feed' : 'feeds'}
+              {board.muted.length > 0 && `, ${board.muted.length} muted ${board.muted.length === 1 ? 'account' : 'accounts'}`}.
+              {state.onboarded && state.columns.length > 0 && ' This replaces the feeds on this device.'}
+            </p>
+            <div className="shared-actions">
+              <button className="btn-quiet" onClick={() => setBoard(null)}>
+                Keep mine
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setState((s) => ({ ...s, onboarded: true, columns: board.columns, muted: board.muted }));
+                  setBoard(null);
+                  flash('Board moved in 🐾');
+                }}
+              >
+                {state.onboarded && state.columns.length > 0 ? 'Replace my feeds' : 'Use this board'}
+              </button>
+            </div>
+            <p className="hint">Sign in again on this device to post. Your sign-in stays on the other one.</p>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   const sharedModal = incoming && (
         <SharedFeedModal
           feed={incoming}
@@ -256,6 +315,7 @@ export default function App() {
           }
         />
         {sharedModal}
+        {boardModal}
         {toast && <div className="toast">{toast}</div>}
       </div>
     );
@@ -398,8 +458,9 @@ export default function App() {
           onSent={() => flash(composing.parent ? 'Reply sent 🐾' : 'Cast sent 🐾')}
         />
       )}
-      {showAbout && <AboutModal onClose={() => setShowAbout(false)} />}
+      {showAbout && <AboutModal state={state} onClose={() => setShowAbout(false)} />}
       {sharedModal}
+      {boardModal}
       {toast && <div className="toast">{toast}</div>}
     </div>
     </WriteContext.Provider>

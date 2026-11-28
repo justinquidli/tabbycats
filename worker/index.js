@@ -73,7 +73,8 @@ const CSP = [
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' https: data: blob:",
-  "connect-src 'self' https://snap.farcaster.xyz:3381 https://haatz.quilibrium.com https://hypersnap.rainonmeproductions.com https://blossom.primal.net https://nostr.download https://blossom.band https://api.farcaster.xyz",
+  "media-src 'self' https: blob:",
+  "connect-src 'self' https://snap.farcaster.xyz:3381 https://haatz.quilibrium.com https://hypersnap.rainonmeproductions.com https://blossom.primal.net https://nostr.download https://blossom.band https://stream.farcaster.xyz https://stream.warpcast.com https://*.cloudflarestream.com https://api.farcaster.xyz",
   "font-src 'self'",
   "object-src 'none'",
   "base-uri 'none'",
@@ -175,6 +176,34 @@ async function feedPage(request, env, id) {
   return withSecurityHeaders(rewritten);
 }
 
+// ---- Moving a board to another device: a one-time link that lasts an hour ----
+const BOARD_ID = /^[A-Za-z0-9]{12}$/;
+const newBoardId = () => newFeedId() + newFeedId().slice(0, 4);
+
+async function createBoard(request, env) {
+  const raw = await request.text();
+  if (raw.length > 200_000) return json({ error: 'Too big to move' }, 413);
+  let board;
+  try {
+    board = JSON.parse(raw);
+  } catch {
+    return json({ error: 'Invalid board' }, 400);
+  }
+  if (!Array.isArray(board?.columns) || board.columns.length > 100 || (board.muted && !Array.isArray(board.muted))) return json({ error: 'Invalid board' }, 400);
+  const id = newBoardId();
+  // The app checks every field again when the board is opened
+  await env.FEEDS.put(`board:${id}`, JSON.stringify({ columns: board.columns, muted: board.muted ?? [] }), { expirationTtl: 3600 });
+  return json({ url: `https://${CANONICAL}/b/${id}` });
+}
+
+// Opening the link uses it up
+async function takeBoard(env, id) {
+  const raw = await env.FEEDS.get(`board:${id}`);
+  if (!raw) return json({ error: 'This link has expired or was already used' }, 404);
+  await env.FEEDS.delete(`board:${id}`);
+  return new Response(raw, { headers: { 'content-type': 'application/json', 'cache-control': 'no-store' } });
+}
+
 // ---- Channels: Farcaster's channel list, kept in KV and searched here ----
 // (browsers can't call Farcaster's API directly; a daily refresh keeps it current, and the
 // last saved copy keeps working if Farcaster's API refuses us)
@@ -240,6 +269,24 @@ export default {
       const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
       if (env.SHARE_LIMIT && !(await env.SHARE_LIMIT.limit({ key: ip })).success) return json({ error: 'Too many shares. Try again in a minute.' }, 429);
       return createFeed(request, env);
+    }
+    if (request.method === 'POST' && url.pathname === '/api/boards') {
+      if (request.headers.get('origin') !== `https://${CANONICAL}`) return json({ error: 'Forbidden' }, 403);
+      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+      if (env.SHARE_LIMIT && !(await env.SHARE_LIMIT.limit({ key: ip })).success) return json({ error: 'Too many tries. Try again in a minute.' }, 429);
+      return createBoard(request, env);
+    }
+    const boardApi = url.pathname.match(/^\/api\/boards\/([A-Za-z0-9]{12})$/);
+    if (request.method === 'POST' && boardApi) {
+      if (request.headers.get('origin') !== `https://${CANONICAL}`) return json({ error: 'Forbidden' }, 403);
+      return takeBoard(env, boardApi[1]);
+    }
+    const boardLink = url.pathname.match(/^\/b\/([A-Za-z0-9]{12})$/);
+    if (request.method === 'GET' && boardLink && BOARD_ID.test(boardLink[1])) {
+      const page = await env.ASSETS.fetch(new Request(new URL('/', request.url)));
+      const res = withSecurityHeaders(page);
+      res.headers.set('x-robots-tag', 'noindex');
+      return res;
     }
     if (request.method === 'GET' && url.pathname === '/api/channels') return searchChannels(url, env, ctx);
     const feedApi = url.pathname.match(/^\/api\/feeds\/([A-Za-z0-9]{8})$/);

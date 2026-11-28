@@ -17,6 +17,10 @@ Everything is saved in your browser. Posting keys are created by the browser as 
 | Farcaster | `https://snap.farcaster.xyz:3381` |
 | Hypersnap | `https://haatz.quilibrium.com` or `https://hypersnap.rainonmeproductions.com` (switch in About) |
 
+**Videos:** video links in casts play inline. Farcaster's streams (`.m3u8`) play natively in Safari; elsewhere a stream player (hls.js) loads the first time you press play.
+
+**Another device:** About → Move to another device makes a one-time link (and QR code) holding your feeds, their order and your mutes. It works once, within an hour. Sign-ins don't move: each device makes its own key.
+
 **Photos:** attach up to 2 per cast (button, paste or drag). They're redrawn in the browser first (max 2048px, no location or camera data; GIFs are kept as they are), then uploaded straight from the browser to a free public [Blossom](https://github.com/hzrd149/blossom) host: blossom.primal.net, falling back to nostr.download and blossom.band. Each upload is signed with a throwaway key. TabbyCats never stores photos, and those hosts make no promise to keep them forever (see `src/upload.ts`).
 
 **Posting (Farcaster):** sign in with Farcaster by scanning a QR code and approving TabbyCats in the Farcaster app. TabbyCats then holds a posting key in your browser that can cast, reply, like and recast, but can't move your account. Remove it any time in Farcaster's settings under Connected apps. 
