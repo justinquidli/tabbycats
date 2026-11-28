@@ -1,7 +1,8 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import QR from 'qrcode';
 import { type Cast, NETWORKS, type Network, getProfile } from './api';
-import { CAST_LIMIT, postCast } from './write';
+import { CAST_LIMIT, castEmbeds, postCast } from './write';
+import { LinkCard } from './CastCard';
 import { MAX_PHOTOS, uploadPhoto } from './upload';
 import { createKey, deleteKey, importKey } from './vault';
 import { mentionAt, useMentionSuggestions } from './mentions';
@@ -346,6 +347,16 @@ export function Composer({
     });
   const uploading = photos.some((p) => !p.url && !p.error);
   const ready = photos.filter((p) => p.url).map((p) => p.url!);
+
+  // Links in the text get a preview card (once you pause typing, so half-typed links don't flash)
+  const [settled, setSettled] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(text), 700);
+    return () => clearTimeout(t);
+  }, [text]);
+  const [removedLinks, setRemovedLinks] = useState<Set<string>>(new Set());
+  const photoSlots = photos.filter((p) => !p.error).length;
+  const linkCards = castEmbeds(settled, [], removedLinks).slice(0, Math.max(0, 2 - photoSlots));
   const canSend = !busy && !uploading && (!!text.trim() || ready.length > 0) && bytes <= limit;
 
   const insert = (snippet: string) => {
@@ -378,7 +389,7 @@ export function Composer({
     setBusy(true);
     setError('');
     try {
-      await postCast(account, network, text, parent ? { fid: parent.fid, hash: parent.hash } : undefined, ready);
+      await postCast(account, network, text, parent ? { fid: parent.fid, hash: parent.hash } : undefined, castEmbeds(text, ready, removedLinks));
       onSent(network);
       onClose();
     } catch (e) {
@@ -462,6 +473,26 @@ export function Composer({
               <figcaption>{p.error ? p.error : p.url ? `via ${p.host}` : 'Uploading…'}</figcaption>
             </figure>
           ))}
+        </div>
+      )}
+      {linkCards.length > 0 && (
+        <div className="composer-links">
+          {linkCards.map((url) => {
+            let host = url;
+            try {
+              host = new URL(url).hostname.replace(/^www\./, '');
+            } catch {
+              /* keep raw */
+            }
+            return (
+              <div key={url} className="composer-link">
+                <LinkCard url={url} host={host} />
+                <button className="photo-remove" aria-label="Remove link preview" onClick={() => setRemovedLinks((r) => new Set(r).add(url))}>
+                  ×
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
       {emojiOpen && (

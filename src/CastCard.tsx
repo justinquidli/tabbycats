@@ -95,7 +95,7 @@ const getPreview = (url: string) => {
 };
 
 // A link with its page's preview card, fetched once it scrolls into view
-function LinkCard({ url, host }: { url: string; host: string }) {
+export function LinkCard({ url, host }: { url: string; host: string }) {
   const ref = useRef<HTMLAnchorElement>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
   useEffect(() => {

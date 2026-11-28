@@ -79,7 +79,7 @@ async function extractMentions(network: Network, text: string) {
   return { text: out, mentions, mentionsPositions };
 }
 
-const MAX_EMBEDS = 2;
+export const MAX_EMBEDS = 2;
 
 /** Links typed in the text, so other apps can show a preview card (photos come first and share the 2 slots). */
 export function linksIn(text: string): string[] {
@@ -93,9 +93,12 @@ export function linksIn(text: string): string[] {
   });
 }
 
-export async function postCast(account: WriteAccount, network: Network, rawText: string, parent?: CastId, photos: string[] = []) {
+/** What a cast will carry: photos first, then links from the text (minus any you removed), 2 at most. */
+export const castEmbeds = (text: string, photos: string[], removed: Set<string> = new Set()) =>
+  [...new Set([...photos, ...linksIn(text).filter((u) => !removed.has(u))])].slice(0, MAX_EMBEDS);
+
+export async function postCast(account: WriteAccount, network: Network, rawText: string, parent?: CastId, embeds: string[] = []) {
   const text = rawText.trim();
-  const embeds = [...new Set([...photos, ...linksIn(text)])].slice(0, MAX_EMBEDS);
   if (!text && !embeds.length) throw new Error('Write something first');
   if (castBytes(text) > CAST_LIMIT) throw new Error('Too long');
   const body = await extractMentions(network, text);

@@ -1669,3 +1669,28 @@ button.brand {
   height: 160px;
   border-radius: 10px;
 }
+
+/* Link previews in the composer */
+.composer-links {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.composer-link {
+  position: relative;
+}
+
+.composer-link .link-card img {
+  max-height: 160px;
+}
+
+.composer-link .link-card {
+  pointer-events: none; /* a preview, not a link to leave the composer by */
+}
+
+.composer-link .photo-remove {
+  top: 6px;
+  right: 6px;
+}
