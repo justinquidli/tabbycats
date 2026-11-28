@@ -5,7 +5,7 @@ import type { Column } from './store';
 import { useWrite } from './account';
 import { useMentionSuggestions } from './mentions';
 import { FIRST_NATIVE_FID, SOURCES, type Source, mergeByHash, useCombinedFirehose, useSourceFilter } from './sources';
-import { shareLink } from './share';
+import { fetchLiveFeed, liveShareLink, shareLink, syncLiveFeed } from './share';
 
 const MAX_HISTORY_FIDS = 300;
 const PAGE = 50;
@@ -257,6 +257,21 @@ function MemberEditor({ source, col, onChange }: { source: Source; col: Column; 
       setBusy(false);
     }
   };
+  if (col.live && !col.live.token) {
+    return (
+      <div className="field">
+        <label>Accounts in this feed</label>
+        <p className="hint">Kept in sync with the curator's list, so new accounts show up on their own.</p>
+        <div className="chips">
+          {members.map((m) => (
+            <span key={m.fid} className="chip">
+              @{m.username ?? m.fid}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="field">
       <label>Accounts in this feed</label>
@@ -316,6 +331,47 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
   const body = useRef<HTMLDivElement>(null);
   const [limit, setLimit] = useState(PAGE);
   const [shared, setShared] = useState<'' | 'making' | 'copied'>('');
+  const [shareError, setShareError] = useState('');
+  const [shareMode, setShareMode] = useState<'copy' | 'live'>(col.live?.token ? 'live' : 'copy');
+  const curating = !!col.live?.token;
+  const following = !!col.live && !col.live.token;
+
+  // Curator: push edits to everyone following this feed (batched, a few seconds after the last change)
+  const liveKey = curating ? JSON.stringify([col.name, col.emoji, col.description, col.source, (col.members ?? []).map((m) => m.fid)]) : '';
+  const firstSync = useRef(true);
+  useEffect(() => {
+    if (!curating) return;
+    if (firstSync.current) return void (firstSync.current = false); // nothing changed yet
+    const timer = setTimeout(async () => {
+      if (!(await syncLiveFeed(col))) setTimeout(() => syncLiveFeed(col), 20000); // one retry
+    }, 4000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveKey]);
+
+  // Follower: pick up the curator's latest list now and every 10 minutes
+  useEffect(() => {
+    if (!following) return;
+    let alive = true;
+    const pull = async () => {
+      const feed = await fetchLiveFeed(col.live!.id);
+      if (!alive || !feed) return;
+      const known = new Map((col.members ?? []).map((m) => [m.fid, m]));
+      const same = feed.fids.length === known.size && feed.fids.every((f) => known.has(f));
+      if (same && feed.description === col.description) return;
+      const members = await Promise.all(
+        feed.fids.map(async (fid) => known.get(fid) ?? { fid, username: (await getProfile(graphNetwork(source, fid), fid)).username }),
+      );
+      if (alive) onChange({ members, description: feed.description });
+    };
+    pull();
+    const timer = setInterval(pull, 10 * 60 * 1000);
+    return () => {
+      alive = false;
+      clearInterval(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [following, col.live?.id]);
 
   const merged = useMemo(() => {
     let list: Cast[];
@@ -416,7 +472,7 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
               <HandleForm initial={col.handle} label="Update" onSubmit={(h) => onChange({ handle: h })} network={graphNetwork(source)} />
             </div>
           )}
-          {col.kind === 'list' && (
+          {col.kind === 'list' && !following && (
             <div className="field">
               <label>Description</label>
               <textarea
@@ -447,12 +503,33 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
           {col.kind === 'list' && (col.members ?? []).length > 0 && (
             <div className="field">
               <label>Share this feed</label>
+              {!following && (
+                <div className="switch small share-mode" role="radiogroup" aria-label="What people get">
+                  <button role="radio" aria-checked={shareMode === 'copy'} className={shareMode === 'copy' ? 'on' : ''} onClick={() => setShareMode('copy')}>
+                    Their own copy
+                  </button>
+                  <button role="radio" aria-checked={shareMode === 'live'} className={shareMode === 'live' ? 'on' : ''} onClick={() => setShareMode('live')}>
+                    Synced with yours
+                  </button>
+                </div>
+              )}
               <div className="share-row">
                 <button
                   className="btn-quiet"
                   onClick={async () => {
                     setShared('making');
-                    const url = await shareLink(col);
+                    setShareError('');
+                    let url: string;
+                    try {
+                      if (following || shareMode === 'live') {
+                        const r = await liveShareLink(col);
+                        if (!col.live) onChange({ live: r.live });
+                        url = r.url;
+                      } else url = await shareLink(col);
+                    } catch (e) {
+                      setShared('');
+                      return setShareError((e as Error).message);
+                    }
                     try {
                       if (navigator.share && matchMedia('(pointer: coarse)').matches) {
                         setShared('');
@@ -469,7 +546,14 @@ export function ColumnView({ col, index, count, justAdded, onChange, onRemove, o
                 >
                   {shared === 'copied' ? 'Link copied ✓' : shared === 'making' ? 'Making link…' : '🔗 Copy share link'}
                 </button>
-                <span className="hint">Anyone with the link can add a copy of this feed.</span>
+                {shareError && <span className="error">{shareError}</span>}
+                <span className="hint">
+                  {following
+                    ? 'Anyone with the link gets this feed, synced with the curator.'
+                    : shareMode === 'live'
+                      ? "People who add it get your changes as you make them, and can't edit the accounts."
+                      : 'People who add it get their own copy to tailor. Your later changes stay with you.'}
+                </span>
               </div>
             </div>
           )}

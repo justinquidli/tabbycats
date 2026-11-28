@@ -116,12 +116,40 @@ function cleanFeed(d) {
   };
 }
 
+async function sha256hex(s) {
+  const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+const newToken = () =>
+  btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(24)))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+// A synced feed comes with an edit token for the curator's browser; only its hash is stored.
 async function createFeed(request, env) {
-  const feed = cleanFeed(await request.json().catch(() => null));
+  const body = await request.json().catch(() => null);
+  const feed = cleanFeed(body);
   if (!feed) return json({ error: 'Invalid feed' }, 400);
   const id = newFeedId();
+  if (body.live === true) {
+    const token = newToken();
+    await env.FEEDS.put(id, JSON.stringify({ ...feed, live: true, key: await sha256hex(token) }));
+    return json({ id, url: `https://${CANONICAL}/f/${id}`, token });
+  }
   await env.FEEDS.put(id, JSON.stringify(feed));
   return json({ id, url: `https://${CANONICAL}/f/${id}` });
+}
+
+// The curator's edits to a synced feed
+async function updateFeed(request, env, id) {
+  const raw = await env.FEEDS.get(id);
+  if (!raw) return json({ error: 'Not found' }, 404);
+  const stored = JSON.parse(raw);
+  const token = (request.headers.get('authorization') ?? '').replace(/^Bearer /, '');
+  if (!stored.live || !stored.key || !token || (await sha256hex(token)) !== stored.key) return json({ error: 'Forbidden' }, 403);
+  const feed = cleanFeed(await request.json().catch(() => null));
+  if (!feed) return json({ error: 'Invalid feed' }, 400);
+  await env.FEEDS.put(id, JSON.stringify({ ...feed, live: true, key: stored.key }));
+  return json({ ok: true });
 }
 
 async function feedPage(request, env, id) {
@@ -217,7 +245,17 @@ export default {
     const feedApi = url.pathname.match(/^\/api\/feeds\/([A-Za-z0-9]{8})$/);
     if (request.method === 'GET' && feedApi) {
       const raw = await env.FEEDS.get(feedApi[1]);
-      return raw ? new Response(raw, { headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=300' } }) : json({ error: 'Not found' }, 404);
+      if (!raw) return json({ error: 'Not found' }, 404);
+      const { key, ...feed } = JSON.parse(raw); // never hand out the edit token's hash
+      return new Response(JSON.stringify(feed), {
+        headers: { 'content-type': 'application/json', 'cache-control': `public, max-age=${feed.live ? 30 : 300}` },
+      });
+    }
+    if (request.method === 'PUT' && feedApi) {
+      if (request.headers.get('origin') !== `https://${CANONICAL}`) return json({ error: 'Forbidden' }, 403);
+      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+      if (env.SHARE_LIMIT && !(await env.SHARE_LIMIT.limit({ key: ip })).success) return json({ error: 'Too many updates. Try again in a minute.' }, 429);
+      return updateFeed(request, env, feedApi[1]);
     }
     const feedLink = url.pathname.match(/^\/f\/([A-Za-z0-9]{8})$/);
     if (request.method === 'GET' && feedLink && FEED_ID.test(feedLink[1])) return feedPage(request, env, feedLink[1]);

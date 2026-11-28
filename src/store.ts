@@ -26,6 +26,7 @@ export interface Column {
   members?: Member[]; // list
   description?: string; // custom feeds: shown in share-link previews
   channel?: Channel; // channel feeds
+  live?: { id: string; token?: string }; // a synced shared feed: with token you curate it, without you follow it
   hideReplies?: boolean;
 }
 

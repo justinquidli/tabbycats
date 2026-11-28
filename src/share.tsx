@@ -12,6 +12,7 @@ export interface SharedFeed {
   fids: number[];
   description?: string;
   by?: { network: Network; fid: number };
+  live?: string; // id of a synced feed: the curator's later edits come through
 }
 
 const MAX_MEMBERS = 1000;
@@ -24,22 +25,55 @@ const toBase64Url = (s: string) =>
 const fromBase64Url = (s: string) =>
   new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)));
 
+const feedData = (col: Column) => {
+  const members = (col.members ?? []).slice(0, MAX_MEMBERS);
+  return { v: 1, n: col.name, e: col.emoji, d: col.description?.trim() || undefined, src: col.source, m: members.map((m) => m.fid) };
+};
+const withNames = (col: Column) => ({ ...feedData(col), names: (col.members ?? []).map((m) => m.username).filter(Boolean).slice(0, 3) });
+
 // Short link (tabbycats.party/f/<id>) with its own link preview; falls back to a long link
 // that carries the whole list in the URL if the short-link service is unavailable.
 export async function shareLink(col: Column): Promise<string> {
-  const members = (col.members ?? []).slice(0, MAX_MEMBERS);
-  const data = { v: 1, n: col.name, e: col.emoji, d: col.description?.trim() || undefined, src: col.source, m: members.map((m) => m.fid) };
   try {
-    const res = await fetch('/api/feeds', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...data, names: members.map((m) => m.username).filter(Boolean).slice(0, 3) }),
-    });
+    const res = await fetch('/api/feeds', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(withNames(col)) });
     if (res.ok) return (await res.json()).url;
   } catch {
     /* fall back below */
   }
-  return `${location.origin}/#feed=${toBase64Url(JSON.stringify(data))}`;
+  return `${location.origin}/#feed=${toBase64Url(JSON.stringify(feedData(col)))}`;
+}
+
+/** A synced share link: people who add it get your later edits. Returns the link and, for a new one, its edit token. */
+export async function liveShareLink(col: Column): Promise<{ url: string; live: { id: string; token?: string } }> {
+  if (col.live) {
+    if (col.live.token) await syncLiveFeed(col);
+    return { url: `${location.origin}/f/${col.live.id}`, live: col.live };
+  }
+  const res = await fetch('/api/feeds', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...withNames(col), live: true }) });
+  if (!res.ok) throw new Error("Couldn't make a synced link right now");
+  const d = await res.json();
+  return { url: d.url, live: { id: d.id, token: d.token } };
+}
+
+/** Push the curator's current list to everyone following it. */
+export async function syncLiveFeed(col: Column): Promise<boolean> {
+  if (!col.live?.token || !(col.members ?? []).length) return false;
+  const res = await fetch(`/api/feeds/${col.live.id}`, {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${col.live.token}` },
+    body: JSON.stringify(withNames(col)),
+  }).catch(() => null);
+  return !!res?.ok;
+}
+
+/** The latest version of a synced feed someone follows (null if it's gone or unreachable). */
+export async function fetchLiveFeed(id: string): Promise<SharedFeed | null> {
+  try {
+    const res = await fetch(`/api/feeds/${id}`);
+    return res.ok ? parseFeed(await res.json(), id) : null;
+  } catch {
+    return null;
+  }
 }
 
 // Short links: /f/<id>
@@ -49,7 +83,7 @@ export async function fetchSharedFeed(): Promise<SharedFeed | null> {
   try {
     const res = await fetch(`/api/feeds/${m[1]}`);
     if (!res.ok) return null;
-    return parseFeed(await res.json());
+    return parseFeed(await res.json(), m[1]);
   } catch {
     return null;
   }
@@ -66,7 +100,7 @@ export function readSharedFeed(): SharedFeed | null {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseFeed(d: any): SharedFeed | null {
+function parseFeed(d: any, id?: string): SharedFeed | null {
   try {
     const source: Source = d.src === 'farcaster' || d.src === 'hypersnap' ? d.src : 'combined'; // older links had no source
     const fids = Array.isArray(d.m)
@@ -78,7 +112,7 @@ function parseFeed(d: any): SharedFeed | null {
         ? { network: (d.by[0] === 'h' ? 'hypersnap' : 'farcaster') as Network, fid: d.by[1] as number }
         : undefined;
     const description = typeof d.d === 'string' ? d.d.trim().slice(0, 200) : '';
-    return { name: String(d.n || 'Shared feed').slice(0, 60), emoji: String(d.e || '📋').slice(0, 8), description: description || undefined, source, fids, by };
+    return { name: String(d.n || 'Shared feed').slice(0, 60), emoji: String(d.e || '📋').slice(0, 8), description: description || undefined, source, fids, by, live: d.live === true && id ? id : undefined };
   } catch {
     return null;
   }
@@ -143,7 +177,9 @@ export function SharedFeedModal({
             {busy ? 'Adding…' : 'Add feed'}
           </button>
         </div>
-        <p className="hint">It becomes your own copy. Edit it however you like.</p>
+        <p className="hint">
+          {feed.live ? "It stays in sync with the curator's list, so new accounts show up on their own." : 'It becomes your own copy. Edit it however you like.'}
+        </p>
       </div>
     </div>
   );

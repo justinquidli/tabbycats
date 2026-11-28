@@ -1187,6 +1187,11 @@ button.brand {
 }
 
 /* Shared feeds */
+.share-mode {
+  align-self: flex-start;
+  margin-bottom: 6px;
+}
+
 .share-row {
   display: flex;
   flex-direction: column;
