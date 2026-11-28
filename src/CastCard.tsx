@@ -1,6 +1,7 @@
 import { Component, type ReactNode, memo, useEffect, useMemo, useRef, useState } from 'react';
 import { type Cast, type Network, type Profile, getProfile, peekProfile } from './api';
 import { openLinks, primaryLink } from './clients';
+import { findLinks } from './links';
 import { useWrite } from './account';
 
 export function useProfile(network: Network, fid: number): Profile | undefined {
@@ -26,23 +27,22 @@ function timeAgo(ts: number) {
   return new Date(ts).toLocaleDateString();
 }
 
-const URL_RE = /(https?:\/\/[^\s]+)/g;
-
 function Linkified({ text }: { text: string }) {
-  const parts = text.split(URL_RE);
-  return (
-    <>
-      {parts.map((p, i) =>
-        i % 2 === 1 ? (
-          <a key={i} href={p} target="_blank" rel="noreferrer noopener">
-            {p.replace(/^https?:\/\//, '')}
-          </a>
-        ) : (
-          p
-        ),
-      )}
-    </>
-  );
+  const links = findLinks(text);
+  if (!links.length) return <>{text}</>;
+  const parts: ReactNode[] = [];
+  let at = 0;
+  links.forEach((l, i) => {
+    parts.push(text.slice(at, l.start));
+    parts.push(
+      <a key={i} href={l.href} target="_blank" rel="noreferrer noopener">
+        {l.label.replace(/^https?:\/\//, '')}
+      </a>,
+    );
+    at = l.end;
+  });
+  parts.push(text.slice(at));
+  return <>{parts}</>;
 }
 
 function Mention({ network, fid }: { network: Network; fid: number }) {

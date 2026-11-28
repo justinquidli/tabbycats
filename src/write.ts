@@ -1,3 +1,4 @@
+import { findLinks } from './links';
 // Posting to Farcaster and Hypersnap. Both use the same message format.
 import { NETWORKS } from './api';
 import type { CastId, Network } from './api';
@@ -82,16 +83,7 @@ async function extractMentions(network: Network, text: string) {
 export const MAX_EMBEDS = 2;
 
 /** Links typed in the text, so other apps can show a preview card (photos come first and share the 2 slots). */
-export function linksIn(text: string): string[] {
-  const found = text.match(/https?:\/\/[^\s<>"'`]+/gi) ?? [];
-  return [...new Set(found.map((u) => u.replace(/[.,;:!?)\]}'"]+$/, '')))].filter((u) => {
-    try {
-      return /^https?:$/.test(new URL(u).protocol);
-    } catch {
-      return false;
-    }
-  });
-}
+export const linksIn = (text: string): string[] => [...new Set(findLinks(text).map((l) => l.href))];
 
 /** What a cast will carry: photos first, then links from the text (minus any you removed), 2 at most. */
 export const castEmbeds = (text: string, photos: string[], removed: Set<string> = new Set()) =>
