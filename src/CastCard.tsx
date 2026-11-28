@@ -76,6 +76,66 @@ function CastText({ cast }: { cast: Cast }) {
 }
 
 const IMG_RE = /\.(png|jpe?g|gif|webp|avif)(\?|$)/i;
+interface Preview {
+  title?: string;
+  description?: string;
+  site?: string;
+  image?: string;
+}
+const previews = new Map<string, Promise<Preview>>();
+const getPreview = (url: string) => {
+  let p = previews.get(url);
+  if (!p) {
+    p = fetch(`/api/unfurl?url=${encodeURIComponent(url)}`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}));
+    previews.set(url, p);
+  }
+  return p;
+};
+
+// A link with its page's preview card, fetched once it scrolls into view
+function LinkCard({ url, host }: { url: string; host: string }) {
+  const ref = useRef<HTMLAnchorElement>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let alive = true;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        io.disconnect();
+        getPreview(url).then((p) => alive && setPreview(p));
+      },
+      { rootMargin: '300px' },
+    );
+    io.observe(el);
+    return () => {
+      alive = false;
+      io.disconnect();
+    };
+  }, [url]);
+  const image = preview?.image && /^https:\/\//i.test(preview.image) ? preview.image : undefined;
+  if (!preview?.title) {
+    return (
+      <a ref={ref} className="embed-link" href={url} target="_blank" rel="noreferrer noopener">
+        🔗 {host}
+      </a>
+    );
+  }
+  return (
+    <a ref={ref} className="link-card" href={url} target="_blank" rel="noreferrer noopener">
+      {image && <img src={image} alt="" loading="lazy" referrerPolicy="no-referrer" onError={(e) => (e.currentTarget.style.display = 'none')} />}
+      <span className="link-card-text">
+        <span className="link-card-site">{preview.site || host}</span>
+        <b>{preview.title}</b>
+        {preview.description && <span className="link-card-desc">{preview.description}</span>}
+      </span>
+    </a>
+  );
+}
+
 const VIDEO_RE = /\.(mp4|webm|mov|m4v|m3u8)(\?|$)/i;
 
 // Videos: plain files play in the browser's own player. Streams (.m3u8, how Farcaster's app hosts
@@ -176,11 +236,7 @@ function Embeds({ cast }: { cast: Cast }) {
         } catch {
           /* keep raw */
         }
-        return (
-          <a key={i} className="embed-link" href={e.url} target="_blank" rel="noreferrer noopener">
-            🔗 {host}
-          </a>
-        );
+        return <LinkCard key={i} url={e.url} host={host} />;
       })}
     </div>
   );

@@ -1,6 +1,7 @@
 // Serves the built app, redirects the other domains to tabbycats.party, and runs two
 // small endpoints that need the app account's key or can't be called from a browser.
 import { privateKeyToAccount } from 'viem/accounts';
+import { unfurl } from './unfurl.js';
 
 const CANONICAL = 'tabbycats.party';
 const APP_FID = 3359500; // @tabbycats
@@ -287,6 +288,13 @@ export default {
       const res = withSecurityHeaders(page);
       res.headers.set('x-robots-tag', 'noindex');
       return res;
+    }
+    if (request.method === 'GET' && url.pathname === '/api/unfurl') {
+      // Only TabbyCats' own pages, and a generous per-visitor limit (a feed can hold many links)
+      if (request.headers.get('sec-fetch-site') !== 'same-origin') return json({ error: 'Forbidden' }, 403);
+      const ip = request.headers.get('cf-connecting-ip') ?? 'unknown';
+      if (env.UNFURL_LIMIT && !(await env.UNFURL_LIMIT.limit({ key: ip })).success) return json({}, 429);
+      return unfurl(request, env, ctx);
     }
     if (request.method === 'GET' && url.pathname === '/api/channels') return searchChannels(url, env, ctx);
     const feedApi = url.pathname.match(/^\/api\/feeds\/([A-Za-z0-9]{8})$/);
