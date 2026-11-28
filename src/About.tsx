@@ -80,7 +80,7 @@ export function AboutModal({ onClose }: { onClose: () => void }) {
           <h3>Your stuff stays with you</h3>
           <p className="hint">
             Your feeds, mutes and posting key live in this browser only. There's no TabbyCats account and nothing about you on our
-            servers.
+            servers. Photos you attach go to free public image hosts, cleaned of location data first.
           </p>
         </section>
 

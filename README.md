@@ -17,6 +17,8 @@ Everything is saved in your browser. Posting keys are created by the browser as 
 | Farcaster | `https://snap.farcaster.xyz:3381` |
 | Hypersnap | `https://haatz.quilibrium.com` or `https://hypersnap.rainonmeproductions.com` (switch in About) |
 
+**Photos:** attach up to 2 per cast (button, paste or drag). They're redrawn in the browser first (max 2048px, no location or camera data; GIFs are kept as they are), then uploaded straight from the browser to a free public [Blossom](https://github.com/hzrd149/blossom) host: blossom.primal.net, falling back to nostr.download and blossom.band. Each upload is signed with a throwaway key. TabbyCats never stores photos, and those hosts make no promise to keep them forever (see `src/upload.ts`).
+
 **Posting (Farcaster):** sign in with Farcaster by scanning a QR code and approving TabbyCats in the Farcaster app. TabbyCats then holds a posting key in your browser that can cast, reply, like and recast, but can't move your account. Remove it any time in Farcaster's settings under Connected apps. 
 
 **Posting (Hypersnap):** unlock with your account's recovery phrase. The phrase is used once, in your browser, to sign a 90-day posting key, and is never saved or sent anywhere (see `src/hypersnap.ts`). Works for accounts created before the Nov 12, 2026 split and for native Hypersnap accounts.

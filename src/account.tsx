@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import QR from 'qrcode';
 import { type Cast, NETWORKS, type Network, getProfile } from './api';
 import { CAST_LIMIT, postCast } from './write';
+import { MAX_PHOTOS, uploadPhoto } from './upload';
 import { createKey, deleteKey, importKey } from './vault';
 import { mentionAt, useMentionSuggestions } from './mentions';
 
@@ -316,6 +317,37 @@ export function Composer({
   const showList = !!open && suggestions.length > 0;
   useEffect(() => setPicked(0), [open?.query]);
   const [emojiOpen, setEmojiOpen] = useState(false);
+
+  // Photos upload as soon as they're attached, so Cast is quick
+  type Photo = { id: number; preview: string; url?: string; host?: string; error?: string };
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const picker = useRef<HTMLInputElement>(null);
+  const nextPhoto = useRef(0);
+  const addPhotos = (files: File[]) => {
+    const room = MAX_PHOTOS - photos.length;
+    const images = files.filter((f) => f.type.startsWith('image/'));
+    if (!images.length) return;
+    if (room <= 0) return setError(`Up to ${MAX_PHOTOS} photos per cast`);
+    setError('');
+    for (const file of images.slice(0, room)) {
+      const id = nextPhoto.current++;
+      setPhotos((p) => [...p, { id, preview: URL.createObjectURL(file) }]);
+      uploadPhoto(file).then(
+        (r) => setPhotos((p) => p.map((x) => (x.id === id ? { ...x, ...r } : x))),
+        (e) => setPhotos((p) => p.map((x) => (x.id === id ? { ...x, error: (e as Error).message } : x))),
+      );
+    }
+  };
+  const removePhoto = (id: number) =>
+    setPhotos((p) => {
+      const gone = p.find((x) => x.id === id);
+      if (gone) URL.revokeObjectURL(gone.preview);
+      return p.filter((x) => x.id !== id);
+    });
+  const uploading = photos.some((p) => !p.url && !p.error);
+  const ready = photos.filter((p) => p.url).map((p) => p.url!);
+  const canSend = !busy && !uploading && (!!text.trim() || ready.length > 0) && bytes <= limit;
+
   const insert = (snippet: string) => {
     const el = box.current;
     const start = el?.selectionStart ?? text.length;
@@ -342,11 +374,11 @@ export function Composer({
   };
 
   const send = async () => {
-    if (busy || !text.trim() || bytes > limit) return;
+    if (!canSend) return;
     setBusy(true);
     setError('');
     try {
-      await postCast(account, network, text, parent ? { fid: parent.fid, hash: parent.hash } : undefined);
+      await postCast(account, network, text, parent ? { fid: parent.fid, hash: parent.hash } : undefined, ready);
       onSent(network);
       onClose();
     } catch (e) {
@@ -369,6 +401,21 @@ export function Composer({
             setCaret(e.target.selectionStart);
           }}
           onSelect={(e) => setCaret(e.currentTarget.selectionStart)}
+          onPaste={(e) => {
+            const files = [...e.clipboardData.files];
+            if (files.some((f) => f.type.startsWith('image/'))) {
+              e.preventDefault();
+              addPhotos(files);
+            }
+          }}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            const files = [...e.dataTransfer.files];
+            if (files.length) {
+              e.preventDefault();
+              addPhotos(files);
+            }
+          }}
           onKeyDown={(e) => {
             if (showList) {
               if (e.key === 'ArrowDown') return e.preventDefault(), setPicked((picked + 1) % suggestions.length);
@@ -404,6 +451,19 @@ export function Composer({
           </ul>
         )}
       </div>
+      {photos.length > 0 && (
+        <div className="composer-photos">
+          {photos.map((p) => (
+            <figure key={p.id} className={p.error ? 'failed' : p.url ? '' : 'loading'}>
+              <img src={p.preview} alt="" />
+              <button className="photo-remove" aria-label="Remove photo" onClick={() => removePhoto(p.id)}>
+                ×
+              </button>
+              <figcaption>{p.error ? p.error : p.url ? `via ${p.host}` : 'Uploading…'}</figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
       {emojiOpen && (
         <div className="emoji-picker-wrap">
         <div className="emoji-picker" role="listbox" aria-label="Emoji">
@@ -433,14 +493,34 @@ export function Composer({
         >
           😺
         </button>}
+        <button
+          className="emoji-toggle"
+          title="Add photo"
+          aria-label="Add photo"
+          disabled={photos.length >= MAX_PHOTOS}
+          onClick={() => picker.current?.click()}
+        >
+          📷
+        </button>
+        <input
+          ref={picker}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => {
+            addPhotos([...(e.target.files ?? [])]);
+            e.target.value = '';
+          }}
+        />
         {limit - bytes <= 60 && (
           <span className={bytes > limit ? 'error' : 'hint'}>
             {bytes > limit ? `${bytes - limit} over the limit` : `${limit - bytes} characters left`}
           </span>
         )}
         {error && <span className="error">{error}</span>}
-        <button className="btn" disabled={busy || !text.trim() || bytes > limit} onClick={send}>
-          {busy ? 'Sending…' : parent ? 'Reply' : 'Cast'}
+        <button className="btn" disabled={!canSend} onClick={send}>
+          {busy ? 'Sending…' : uploading ? 'Uploading…' : parent ? 'Reply' : 'Cast'}
         </button>
       </div>
       {!parent && available.length > 1 ? (

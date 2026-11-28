@@ -1506,3 +1506,69 @@ button.brand {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* Composer photos */
+.emoji-toggle:disabled {
+  opacity: 0.4;
+  background: transparent;
+}
+
+.composer-photos {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0;
+}
+
+.composer-photos figure {
+  position: relative;
+  margin: 0;
+  width: 120px;
+}
+
+.composer-photos img {
+  display: block;
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--peach);
+}
+
+.composer-photos .loading img {
+  opacity: 0.55;
+}
+
+.composer-photos .failed img {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+
+.composer-photos figcaption {
+  font-size: 11px;
+  color: var(--dark-orange);
+  margin-top: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.composer-photos .failed figcaption {
+  color: #b42318;
+  white-space: normal;
+}
+
+.photo-remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(43, 23, 0, 0.7);
+  color: #fff;
+  font-size: 15px;
+  line-height: 22px;
+  padding: 0;
+}

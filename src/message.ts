@@ -65,10 +65,12 @@ class Writer {
 
 const castId = (c: CastIdBytes) => new Writer().uint(1, c.fid).bytesField(2, c.hash);
 
-export function castAddBody(b: { text: string; mentions: number[]; mentionsPositions: number[]; parentCastId?: CastIdBytes }) {
+export function castAddBody(b: { text: string; mentions: number[]; mentionsPositions: number[]; parentCastId?: CastIdBytes; embeds?: string[] }) {
   const w = new Writer().packed(2, b.mentions);
   if (b.parentCastId) w.message(3, castId(b.parentCastId));
-  return w.string(4, b.text).packed(5, b.mentionsPositions);
+  w.string(4, b.text).packed(5, b.mentionsPositions);
+  for (const url of b.embeds ?? []) w.message(6, new Writer().string(1, url)); // Embed { url = 1 }
+  return w;
 }
 
 export function reactionBody(type: number, target: CastIdBytes) {

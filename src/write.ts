@@ -79,16 +79,16 @@ async function extractMentions(network: Network, text: string) {
   return { text: out, mentions, mentionsPositions };
 }
 
-export async function postCast(account: WriteAccount, network: Network, rawText: string, parent?: CastId) {
+export async function postCast(account: WriteAccount, network: Network, rawText: string, parent?: CastId, embeds: string[] = []) {
   const text = rawText.trim();
-  if (!text) throw new Error('Write something first');
+  if (!text && !embeds.length) throw new Error('Write something first');
   if (castBytes(text) > CAST_LIMIT) throw new Error('Too long');
   const body = await extractMentions(network, text);
   const msg = await buildMessage(
     MessageType.CAST_ADD,
     account.fid,
     5,
-    castAddBody({ ...body, parentCastId: parent ? { fid: parent.fid, hash: hexToBytes(parent.hash) } : undefined }),
+    castAddBody({ ...body, embeds, parentCastId: parent ? { fid: parent.fid, hash: hexToBytes(parent.hash) } : undefined }),
     await signerFor(account),
   );
   await submit(network, msg.bytes);
