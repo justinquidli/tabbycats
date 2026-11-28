@@ -217,10 +217,16 @@ export function HypersnapSignIn({ note, onClose, onDone }: { note?: string; onCl
   const [phrase, setPhrase] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
-  const words = phrase.trim() ? phrase.trim().split(/\s+/).length : 0;
+  // Count words the way the unlock reads them: numbers, commas and line breaks don't count
+  const words = phrase.toLowerCase().replace(/[^a-z]+/g, ' ').trim().split(' ').filter(Boolean).length;
+  const rightLength = [12, 15, 18, 21, 24].includes(words);
 
   const unlock = async () => {
     if (busy) return;
+    if (!rightLength) {
+      setError(`Recovery phrases are 12 or 24 words. This has ${words}.`);
+      return;
+    }
     setError('');
     setBusy('Checking your phrase…');
     try {
@@ -253,8 +259,8 @@ export function HypersnapSignIn({ note, onClose, onDone }: { note?: string; onCl
         aria-label="Recovery phrase"
       />
       <div className="unlock-foot">
-        <span className="hint">{words ? `${words} words` : ''}</span>
-        <button className="btn" disabled={!!busy || (words !== 12 && words !== 24)} onClick={unlock}>
+        <span className="hint">{words ? `${words} word${words === 1 ? '' : 's'}${rightLength ? ' ✓' : ''}` : ''}</span>
+        <button className="btn" disabled={!!busy || !words} onClick={unlock}>
           {busy || 'Unlock'}
         </button>
       </div>

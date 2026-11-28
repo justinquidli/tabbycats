@@ -96,8 +96,15 @@ function signTypedData(
 }
 
 // ---- phrase → custody wallet ----
+// Accept the phrase however it was copied: numbered lists ("1. apple"), commas, line breaks, capitals.
 export function normalizePhrase(phrase: string) {
-  return phrase.trim().toLowerCase().split(/\s+/).join(' ');
+  return phrase
+    .toLowerCase()
+    .replace(/[^a-z]+/g, ' ')
+    .trim()
+    .split(' ')
+    .filter(Boolean)
+    .join(' ');
 }
 
 export function isValidPhrase(phrase: string) {
@@ -175,7 +182,11 @@ export async function unlockHypersnap(
 async function addKey(custody: { privateKey: Uint8Array; address: string }, onStep: (msg: string) => void): Promise<HypersnapKey> {
   const fid = await findFid(custody.address);
   if (!fid) {
-    throw new Error('No Hypersnap account uses this phrase. Accounts created on Farcaster after Nov 12, 2026 need a separate Hypersnap account.');
+    throw new Error(
+      `No Hypersnap account is owned by this phrase's wallet (${custody.address.slice(0, 6)}…${custody.address.slice(-4)}). ` +
+        "Make sure it's your Farcaster account's recovery phrase (Farcaster app → Settings → Advanced), not a wallet's. " +
+        'Accounts created on Farcaster after Nov 12, 2026 need a separate Hypersnap account.',
+    );
   }
 
   onStep('Creating your posting key…');
