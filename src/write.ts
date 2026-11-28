@@ -79,8 +79,23 @@ async function extractMentions(network: Network, text: string) {
   return { text: out, mentions, mentionsPositions };
 }
 
-export async function postCast(account: WriteAccount, network: Network, rawText: string, parent?: CastId, embeds: string[] = []) {
+const MAX_EMBEDS = 2;
+
+/** Links typed in the text, so other apps can show a preview card (photos come first and share the 2 slots). */
+export function linksIn(text: string): string[] {
+  const found = text.match(/https?:\/\/[^\s<>"'`]+/gi) ?? [];
+  return [...new Set(found.map((u) => u.replace(/[.,;:!?)\]}'"]+$/, '')))].filter((u) => {
+    try {
+      return /^https?:$/.test(new URL(u).protocol);
+    } catch {
+      return false;
+    }
+  });
+}
+
+export async function postCast(account: WriteAccount, network: Network, rawText: string, parent?: CastId, photos: string[] = []) {
   const text = rawText.trim();
+  const embeds = [...new Set([...photos, ...linksIn(text)])].slice(0, MAX_EMBEDS);
   if (!text && !embeds.length) throw new Error('Write something first');
   if (castBytes(text) > CAST_LIMIT) throw new Error('Too long');
   const body = await extractMentions(network, text);
