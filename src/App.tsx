@@ -148,7 +148,13 @@ export default function App() {
   const [showMuted, setShowMuted] = useState(false);
   const [accounts, setAccounts] = useState<Accounts>(loadAccounts);
   // 'choose' shows the network picker; a network opens that network's sign-in
-  const [signingIn, setSigningIn] = useState<Network | 'choose' | null>(null);
+  const [signingIn, setSigningInRaw] = useState<Network | 'choose' | null>(null);
+  // Why the sign-in opened, when it isn't obvious (e.g. you're signed in, but to the other network)
+  const [signInNote, setSignInNote] = useState('');
+  const setSigningIn = (n: Network | 'choose' | null, note = '') => {
+    setSignInNote(note);
+    setSigningInRaw(n);
+  };
   const [composing, setComposing] = useState<{ parent?: Cast; network?: Network } | null>(null);
   const hasAccount = Object.keys(accounts).length > 0;
   useEffect(() => {
@@ -181,6 +187,17 @@ export default function App() {
   // Most casts live on both networks; act on the first one you're signed in to (Farcaster first).
   const writableNetwork = (cast: Cast): Network | undefined =>
     (['farcaster', 'hypersnap'] as Network[]).find((n) => (cast.on ?? [cast.network]).includes(n) && accounts[n]);
+  // Signed in, but only to the other network: say so, instead of a sign-in that looks like a glitch
+  const needOtherNetwork = (cast: Cast, action: string) => {
+    const signedInTo = (Object.keys(accounts) as Network[])[0];
+    const label = NETWORKS[cast.network].label;
+    setSigningIn(
+      cast.network,
+      signedInTo
+        ? `This cast is only on ${label}. You're signed in to ${NETWORKS[signedInTo].label}, so to ${action} it you'll need to sign in to ${label} too.`
+        : '',
+    );
+  };
   const writeApi = useMemo(
     () => ({
       accounts,
@@ -190,12 +207,12 @@ export default function App() {
         // Reply on whichever network the cast is on that you're signed in to
         const network = writableNetwork(parent);
         if (network) setComposing({ parent, network });
-        else setSigningIn(parent.network);
+        else needOtherNetwork(parent, 'reply to');
       },
       react: async (kind: 'like' | 'recast', cast: Cast) => {
         const network = writableNetwork(cast);
         if (!network) {
-          setSigningIn(cast.network);
+          needOtherNetwork(cast, kind === 'like' ? 'like' : 'recast');
           throw new Error('signed out');
         }
         await react(accounts[network]!, network, kind, { fid: cast.fid, hash: cast.hash });
@@ -430,6 +447,7 @@ export default function App() {
       )}
       {signingIn === 'farcaster' && (
         <FarcasterSignIn
+          note={signInNote}
           onClose={() => setSigningIn(null)}
           onDone={(a) => {
             setAccount('farcaster', a);
@@ -440,6 +458,7 @@ export default function App() {
       )}
       {signingIn === 'hypersnap' && (
         <HypersnapSignIn
+          note={signInNote}
           onClose={() => setSigningIn(null)}
           onDone={(a) => {
             setAccount('hypersnap', a);

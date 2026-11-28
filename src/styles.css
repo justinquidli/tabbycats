@@ -1694,3 +1694,11 @@ button.brand {
   top: 6px;
   right: 6px;
 }
+
+.signin-note {
+  background: #fff1cc;
+  border: 1px solid #e8c77a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.9em;
+}

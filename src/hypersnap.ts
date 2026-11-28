@@ -7,7 +7,7 @@ import { wordlist } from '@scure/bip39/wordlists/english';
 import { secp256k1 } from '@noble/curves/secp256k1';
 import { blake3 } from '@noble/hashes/blake3';
 import { keccak_256 } from '@noble/hashes/sha3';
-import { NETWORKS } from './api';
+import { NETWORKS, hypersnapNodeReady } from './api';
 import { createKey, deleteKey, getSigner } from './vault';
 
 const node = () => NETWORKS.hypersnap.node; // read each time: it can switch to a backup node
@@ -159,7 +159,14 @@ export async function unlockHypersnap(
   const custody = custodyFromPhrase(phrase);
   onPhraseUsed();
   try {
+    await hypersnapNodeReady(); // if the usual node is down, use the backup it switched to
     return await addKey(custody, onStep);
+  } catch (e) {
+    if (e instanceof TypeError) {
+      // fetch() failing outright means the node didn't answer, not that the phrase is wrong
+      throw new Error("Couldn't reach the Hypersnap node. Try again, or switch nodes in About.");
+    }
+    throw e;
   } finally {
     custody.privateKey.fill(0); // whatever happens, the wallet key doesn't outlive this call
   }

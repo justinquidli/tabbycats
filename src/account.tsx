@@ -128,7 +128,7 @@ type Step =
   | { kind: 'approved' }
   | { kind: 'error'; message: string };
 
-export function FarcasterSignIn({ onClose, onDone }: { onClose: () => void; onDone: (a: Account) => void }) {
+export function FarcasterSignIn({ note, onClose, onDone }: { note?: string; onClose: () => void; onDone: (a: Account) => void }) {
   const [step, setStep] = useState<Step>({ kind: 'starting' });
   const [attempt, setAttempt] = useState(0);
   const done = useRef(onDone);
@@ -185,6 +185,7 @@ export function FarcasterSignIn({ onClose, onDone }: { onClose: () => void; onDo
   return (
     <Modal label="Sign in with Farcaster" onClose={onClose}>
       <h2>Sign in with Farcaster</h2>
+      {note && <p className="signin-note">{note}</p>}
       {step.kind === 'starting' && <p className="hint">Stretching… preparing your request</p>}
       {step.kind === 'waiting' && (
         <>
@@ -212,7 +213,7 @@ export function FarcasterSignIn({ onClose, onDone }: { onClose: () => void; onDo
   );
 }
 
-export function HypersnapSignIn({ onClose, onDone }: { onClose: () => void; onDone: (a: Account) => void }) {
+export function HypersnapSignIn({ note, onClose, onDone }: { note?: string; onClose: () => void; onDone: (a: Account) => void }) {
   const [phrase, setPhrase] = useState('');
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -225,8 +226,9 @@ export function HypersnapSignIn({ onClose, onDone }: { onClose: () => void; onDo
     try {
       const { unlockHypersnap } = await import('./hypersnap');
       const key = await unlockHypersnap(phrase, setBusy, () => setPhrase('')); // forgotten as soon as it's been used
-      const p = await getProfile('hypersnap', key.fid);
-      onDone({ ...key, username: p.username ?? p.display });
+      // The key is live now; a slow profile lookup shouldn't undo the sign-in
+      const p = await getProfile('hypersnap', key.fid).catch(() => null);
+      onDone({ ...key, username: p?.username ?? p?.display });
     } catch (e) {
       setError((e as Error).message);
       setBusy('');
@@ -236,6 +238,7 @@ export function HypersnapSignIn({ onClose, onDone }: { onClose: () => void; onDo
   return (
     <Modal label="Unlock Hypersnap" onClose={onClose} className="unlock">
       <h2>Unlock Hypersnap</h2>
+      {note && <p className="signin-note">{note}</p>}
       <p>Enter your account's recovery phrase to let TabbyCats post for you on Hypersnap.</p>
       <textarea
         value={phrase}
